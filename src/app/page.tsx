@@ -99,7 +99,7 @@ export default function HomePage() {
           <button
             type="button"
             onClick={() => setAddTeamOpen(true)}
-            className="rounded-[10px] bg-pb-active px-3 py-2 text-xs font-semibold text-pb-orange"
+            className="rounded-[10px] bg-pb-active px-3 py-2 text-xs font-semibold text-pb-orange border-t-[2px] border-r-[2px] border-b-[2px] border-l-[2px] rounded-tl-[20px] rounded-tr-[20px] rounded-br-[20px] rounded-bl-[20px]"
           >
             + Add Team
           </button>
