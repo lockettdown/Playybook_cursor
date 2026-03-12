@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function TeamDetailPage() {
   const params = useParams();
@@ -50,6 +51,7 @@ export default function TeamDetailPage() {
   const [newEventOpponent, setNewEventOpponent] = useState("");
 
   const router = useRouter();
+  const { canEditTeams, canEditEvents } = usePermissions();
 
   useEffect(() => {
     if (editingPlayer) {
@@ -147,14 +149,16 @@ export default function TeamDetailPage() {
         <h1 className="flex-1 truncate text-2xl font-bold text-white">
           {team.name}
         </h1>
-        <button
-          type="button"
-          onClick={() => setDeleteTeamConfirmOpen(true)}
-          className="flex items-center justify-center size-11 shrink-0 rounded-full bg-pb-card text-red-400 active:bg-pb-card-hover hover:bg-red-500/10 transition-colors"
-          aria-label="Delete team"
-        >
-          <Trash2 className="size-5" />
-        </button>
+        {canEditTeams && (
+          <button
+            type="button"
+            onClick={() => setDeleteTeamConfirmOpen(true)}
+            className="flex items-center justify-center size-11 shrink-0 rounded-full bg-pb-card text-red-400 active:bg-pb-card-hover hover:bg-red-500/10 transition-colors"
+            aria-label="Delete team"
+          >
+            <Trash2 className="size-5" />
+          </button>
+        )}
       </div>
 
       {/* Stats Bar */}
@@ -209,10 +213,19 @@ export default function TeamDetailPage() {
               Events
             </button>
           </div>
-          {(sectionTab === "roster" || sectionTab === "events") && (
+          {sectionTab === "roster" && canEditTeams && (
             <button
               type="button"
-              onClick={() => sectionTab === "roster" ? setAddPlayerOpen(true) : setAddEventOpen(true)}
+              onClick={() => setAddPlayerOpen(true)}
+              className="flex items-center justify-center size-11 rounded-full bg-pb-orange active:bg-pb-orange/80 transition-colors"
+            >
+              <Plus className="size-5 text-white" />
+            </button>
+          )}
+          {sectionTab === "events" && canEditEvents && (
+            <button
+              type="button"
+              onClick={() => setAddEventOpen(true)}
               className="flex items-center justify-center size-11 rounded-full bg-pb-orange active:bg-pb-orange/80 transition-colors"
             >
               <Plus className="size-5 text-white" />
@@ -238,14 +251,16 @@ export default function TeamDetailPage() {
                     <p className="text-pb-muted text-sm">{player.position}</p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setEditingPlayer(player)}
-                  className="flex items-center justify-center size-11 rounded-full active:bg-pb-card-hover transition-colors"
-                  aria-label={`Edit ${player.name}`}
-                >
-                  <Edit className="size-4 text-pb-muted" />
-                </button>
+                {canEditTeams && (
+                  <button
+                    type="button"
+                    onClick={() => setEditingPlayer(player)}
+                    className="flex items-center justify-center size-11 rounded-full active:bg-pb-card-hover transition-colors"
+                    aria-label={`Edit ${player.name}`}
+                  >
+                    <Edit className="size-4 text-pb-muted" />
+                  </button>
+                )}
               </div>
             ))}
           </div>

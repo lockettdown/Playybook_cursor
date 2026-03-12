@@ -1,8 +1,9 @@
 "use client";
 
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, Trash2 } from "lucide-react";
 import { useEventsStore, type TeamEvent } from "@/store/eventsStore";
 import { PageTransition } from "@/components/layout/PageTransition";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const typeColors: Record<string, string> = {
   practice: "bg-pb-blue/20 text-pb-blue",
@@ -29,7 +30,9 @@ function formatDate(dateStr: string): string {
 
 export default function EventsPage() {
   const events = useEventsStore((s) => s.events);
+  const removeEvent = useEventsStore((s) => s.removeEvent);
   const sorted = sortedByDate(events);
+  const { canEditEvents } = usePermissions();
 
   return (
     <PageTransition>
@@ -55,10 +58,22 @@ export default function EventsPage() {
                 className="bg-pb-card rounded-[14px] px-4 py-4 flex flex-col gap-1.5"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-white font-bold text-base truncate">{evt.title}</p>
-                  <span className={`shrink-0 text-xs font-medium px-2.5 py-0.5 rounded-full ${typeColors[evt.type]}`}>
-                    {evt.type}
-                  </span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <p className="text-white font-bold text-base truncate">{evt.title}</p>
+                    <span className={`shrink-0 text-xs font-medium px-2.5 py-0.5 rounded-full ${typeColors[evt.type]}`}>
+                      {evt.type}
+                    </span>
+                  </div>
+                  {canEditEvents && (
+                    <button
+                      type="button"
+                      onClick={() => removeEvent(evt.id)}
+                      aria-label="Delete event"
+                      className="shrink-0 flex items-center justify-center size-8 rounded-full text-red-400 hover:bg-red-500/10 active:bg-red-500/20 transition-colors"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  )}
                 </div>
                 <p className="text-pb-muted text-sm">
                   {formatDate(evt.date)}{evt.time ? ` · ${evt.time}` : ""}

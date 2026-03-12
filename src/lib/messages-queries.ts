@@ -80,6 +80,18 @@ export async function inviteMember(
   return mapMember(data);
 }
 
+export async function updateMemberRole(
+  memberId: string,
+  role: "coach" | "parent" | "player"
+): Promise<void> {
+  const supabase = getSupabaseBrowser();
+  const { error } = await supabase
+    .from("app_members")
+    .update({ role, updated_at: new Date().toISOString() })
+    .eq("id", memberId);
+  if (error) throw error;
+}
+
 export async function removeMember(memberId: string): Promise<void> {
   const supabase = getSupabaseBrowser();
   const { error } = await supabase
