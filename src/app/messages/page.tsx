@@ -11,7 +11,6 @@ import {
   MessageCircle,
   Copy,
   Check,
-  LogIn,
   Shield,
 } from "lucide-react";
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -90,12 +89,11 @@ export default function MessagesPage() {
   }, []);
 
   useEffect(() => {
-    if (member) loadMessages();
-  }, [member, loadMessages]);
+    loadMessages();
+  }, [loadMessages]);
 
   // ── Realtime subscription ──
   useEffect(() => {
-    if (!member) return;
     const supabase = getSupabaseBrowser();
     const channel = supabase
       .channel("team_messages_realtime")
@@ -196,27 +194,7 @@ export default function MessagesPage() {
     setTimeout(() => setCopiedToken(null), 2000);
   }, []);
 
-  // ── Not authenticated ──
-  if (!loading && !user) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-pb-dark px-4">
-        <MessageCircle size={48} className="text-pb-orange mb-4" />
-        <h2 className="text-xl font-bold text-white mb-2">Messages</h2>
-        <p className="text-sm text-pb-muted mb-6 text-center">
-          Sign in to message your team&apos;s players and parents.
-        </p>
-        <Button
-          onClick={() => router.push("/login")}
-          className="bg-pb-orange text-white hover:bg-pb-orange/90 gap-2"
-        >
-          <LogIn size={18} />
-          Sign in
-        </Button>
-      </div>
-    );
-  }
-
-  if (loading || !member) {
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-pb-dark">
         <p className="text-pb-muted">Loading…</p>
@@ -480,29 +458,39 @@ export default function MessagesPage() {
       </div>
 
       {/* Input */}
-      <div className="sticky bottom-0 border-t border-pb-border bg-pb-dark px-4 py-3 pb-safe" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
-        <div className="flex items-center gap-2">
-          <Input
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSend();
-              }
-            }}
-            placeholder="Message the team…"
-            className="flex-1 border-pb-border bg-pb-card text-white placeholder:text-pb-muted"
-          />
+      <div className="sticky bottom-0 border-t border-pb-border bg-pb-dark px-4 py-3" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
+        {member ? (
+          <div className="flex items-center gap-2">
+            <Input
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              placeholder="Message the team…"
+              className="flex-1 border-pb-border bg-pb-card text-white placeholder:text-pb-muted"
+            />
+            <button
+              type="button"
+              onClick={handleSend}
+              disabled={!body.trim() || sending}
+              className="flex size-10 shrink-0 items-center justify-center rounded-full bg-pb-orange text-white transition-colors hover:bg-pb-orange/90 disabled:opacity-40"
+            >
+              <Send size={18} />
+            </button>
+          </div>
+        ) : (
           <button
             type="button"
-            onClick={handleSend}
-            disabled={!body.trim() || sending}
-            className="flex size-10 shrink-0 items-center justify-center rounded-full bg-pb-orange text-white transition-colors hover:bg-pb-orange/90 disabled:opacity-40"
+            onClick={() => router.push("/login")}
+            className="w-full rounded-xl bg-pb-card py-3 text-sm text-pb-muted hover:bg-pb-card-hover hover:text-white transition-colors"
           >
-            <Send size={18} />
+            Sign in to send a message
           </button>
-        </div>
+        )}
       </div>
     </div>
   );
