@@ -46,6 +46,8 @@ export default function TeamDetailPage() {
   const [newEventTime, setNewEventTime] = useState("");
   const [newEventType, setNewEventType] = useState<TeamEventType>("practice");
   const [newEventNotes, setNewEventNotes] = useState("");
+  const [newEventLocation, setNewEventLocation] = useState("");
+  const [newEventOpponent, setNewEventOpponent] = useState("");
 
   const router = useRouter();
 
@@ -278,6 +280,12 @@ export default function TeamDetailPage() {
                       <p className="text-pb-muted text-sm">
                         {evt.date}{evt.time ? ` · ${evt.time}` : ""}
                       </p>
+                      {evt.location ? (
+                        <p className="text-pb-muted text-xs mt-0.5">📍 {evt.location}</p>
+                      ) : null}
+                      {evt.opponent ? (
+                        <p className="text-pb-muted text-xs mt-0.5">vs {evt.opponent}</p>
+                      ) : null}
                       {evt.notes ? (
                         <p className="text-pb-muted text-xs mt-0.5">{evt.notes}</p>
                       ) : null}
@@ -429,6 +437,18 @@ export default function TeamDetailPage() {
               <option value="other">Other</option>
             </select>
             <Input
+              placeholder="Location (optional)"
+              value={newEventLocation}
+              onChange={(e) => setNewEventLocation(e.target.value)}
+              className="bg-pb-card border-pb-border text-white"
+            />
+            <Input
+              placeholder="Opponent (optional)"
+              value={newEventOpponent}
+              onChange={(e) => setNewEventOpponent(e.target.value)}
+              className="bg-pb-card border-pb-border text-white"
+            />
+            <Input
               placeholder="Notes (optional)"
               value={newEventNotes}
               onChange={(e) => setNewEventNotes(e.target.value)}
@@ -454,6 +474,8 @@ export default function TeamDetailPage() {
                   date: newEventDate,
                   time: newEventTime,
                   type: newEventType,
+                  location: newEventLocation.trim(),
+                  opponent: newEventOpponent.trim(),
                   notes: newEventNotes.trim(),
                 });
                 setAddEventOpen(false);
@@ -462,6 +484,8 @@ export default function TeamDetailPage() {
                 setNewEventTime("");
                 setNewEventType("practice");
                 setNewEventNotes("");
+                setNewEventLocation("");
+                setNewEventOpponent("");
               }}
               className="bg-pb-orange text-white hover:bg-pb-orange/90"
             >

@@ -11,6 +11,8 @@ export interface TeamEvent {
   date: string;
   time: string;
   type: TeamEventType;
+  location: string;
+  opponent: string;
   notes: string;
 }
 

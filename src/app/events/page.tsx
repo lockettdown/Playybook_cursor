@@ -64,6 +64,12 @@ export default function EventsPage() {
                   {formatDate(evt.date)}{evt.time ? ` · ${evt.time}` : ""}
                 </p>
                 <p className="text-pb-orange text-xs font-medium">{evt.teamName}</p>
+                {evt.location ? (
+                  <p className="text-pb-muted text-xs mt-0.5">📍 {evt.location}</p>
+                ) : null}
+                {evt.opponent ? (
+                  <p className="text-pb-muted text-xs mt-0.5">vs {evt.opponent}</p>
+                ) : null}
                 {evt.notes ? (
                   <p className="text-pb-muted text-xs mt-0.5">{evt.notes}</p>
                 ) : null}
