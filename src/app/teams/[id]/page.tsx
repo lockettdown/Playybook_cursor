@@ -37,10 +37,27 @@ export default function TeamDetailPage() {
   const [editNumber, setEditNumber] = useState("");
   const [editPosition, setEditPosition] = useState("");
 
-  type SectionTab = "roster" | "stats";
+  type SectionTab = "roster" | "stats" | "events";
   const [sectionTab, setSectionTab] = useState<SectionTab>("roster");
   const [statsView, setStatsView] = useState<"perGame" | "total">("perGame");
   const [deleteTeamConfirmOpen, setDeleteTeamConfirmOpen] = useState(false);
+
+  type EventType = "practice" | "game" | "meeting" | "other";
+  interface TeamEvent {
+    id: string;
+    title: string;
+    date: string;
+    time: string;
+    type: EventType;
+    notes: string;
+  }
+  const [teamEvents, setTeamEvents] = useState<TeamEvent[]>([]);
+  const [addEventOpen, setAddEventOpen] = useState(false);
+  const [newEventTitle, setNewEventTitle] = useState("");
+  const [newEventDate, setNewEventDate] = useState("");
+  const [newEventTime, setNewEventTime] = useState("");
+  const [newEventType, setNewEventType] = useState<EventType>("practice");
+  const [newEventNotes, setNewEventNotes] = useState("");
 
   const router = useRouter();
 
@@ -200,11 +217,22 @@ export default function TeamDetailPage() {
             >
               Stats
             </button>
-          </div>
-          {sectionTab === "roster" && (
             <button
               type="button"
-              onClick={() => setAddPlayerOpen(true)}
+              onClick={() => setSectionTab("events")}
+              className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
+                sectionTab === "events"
+                  ? "bg-pb-orange text-white"
+                  : "text-pb-muted active:text-white"
+              }`}
+            >
+              Events
+            </button>
+          </div>
+          {(sectionTab === "roster" || sectionTab === "events") && (
+            <button
+              type="button"
+              onClick={() => sectionTab === "roster" ? setAddPlayerOpen(true) : setAddEventOpen(true)}
               className="flex items-center justify-center size-11 rounded-full bg-pb-orange active:bg-pb-orange/80 transition-colors"
             >
               <Plus className="size-5 text-white" />
@@ -240,6 +268,46 @@ export default function TeamDetailPage() {
                 </button>
               </div>
             ))}
+          </div>
+        )}
+
+        {sectionTab === "events" && (
+          <div className="flex flex-col gap-2">
+            {teamEvents.length === 0 ? (
+              <p className="text-pb-muted text-center py-8 text-sm">
+                No events yet. Tap + to add one.
+              </p>
+            ) : (
+              teamEvents.map((evt) => {
+                const typeColors: Record<string, string> = {
+                  practice: "bg-pb-blue/20 text-pb-blue",
+                  game: "bg-pb-orange/20 text-pb-orange",
+                  meeting: "bg-green-500/20 text-green-400",
+                  other: "bg-pb-muted/20 text-pb-muted",
+                };
+                return (
+                  <div
+                    key={evt.id}
+                    className="flex items-start justify-between bg-pb-card rounded-[14px] px-4 py-3"
+                  >
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-white font-bold">{evt.title}</p>
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${typeColors[evt.type]}`}>
+                          {evt.type}
+                        </span>
+                      </div>
+                      <p className="text-pb-muted text-sm">
+                        {evt.date}{evt.time ? ` · ${evt.time}` : ""}
+                      </p>
+                      {evt.notes ? (
+                        <p className="text-pb-muted text-xs mt-0.5">{evt.notes}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         )}
 
@@ -372,6 +440,87 @@ export default function TeamDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Add Event Dialog */}
+      <Dialog open={addEventOpen} onOpenChange={setAddEventOpen}>
+        <DialogContent className="border-pb-border bg-pb-dark text-white">
+          <DialogHeader>
+            <DialogTitle className="text-white">Add Event</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              placeholder="Title"
+              value={newEventTitle}
+              onChange={(e) => setNewEventTitle(e.target.value)}
+              className="bg-pb-card border-pb-border text-white"
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                type="date"
+                value={newEventDate}
+                onChange={(e) => setNewEventDate(e.target.value)}
+                className="bg-pb-card border-pb-border text-white"
+              />
+              <Input
+                type="time"
+                value={newEventTime}
+                onChange={(e) => setNewEventTime(e.target.value)}
+                className="bg-pb-card border-pb-border text-white"
+              />
+            </div>
+            <select
+              value={newEventType}
+              onChange={(e) => setNewEventType(e.target.value as typeof newEventType)}
+              className="w-full rounded-md border border-pb-border bg-pb-card px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-pb-orange"
+            >
+              <option value="practice">Practice</option>
+              <option value="game">Game</option>
+              <option value="meeting">Meeting</option>
+              <option value="other">Other</option>
+            </select>
+            <Input
+              placeholder="Notes (optional)"
+              value={newEventNotes}
+              onChange={(e) => setNewEventNotes(e.target.value)}
+              className="bg-pb-card border-pb-border text-white"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setAddEventOpen(false)}
+              className="border-pb-border text-white"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={!newEventTitle.trim() || !newEventDate}
+              onClick={() => {
+                setTeamEvents((prev) => [
+                  ...prev,
+                  {
+                    id: crypto.randomUUID(),
+                    title: newEventTitle.trim(),
+                    date: newEventDate,
+                    time: newEventTime,
+                    type: newEventType,
+                    notes: newEventNotes.trim(),
+                  },
+                ]);
+                setAddEventOpen(false);
+                setNewEventTitle("");
+                setNewEventDate("");
+                setNewEventTime("");
+                setNewEventType("practice");
+                setNewEventNotes("");
+              }}
+              className="bg-pb-orange text-white hover:bg-pb-orange/90"
+            >
+              Add Event
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Player Dialog */}
       <Dialog open={addPlayerOpen} onOpenChange={setAddPlayerOpen}>
