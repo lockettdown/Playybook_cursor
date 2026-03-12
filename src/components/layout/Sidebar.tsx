@@ -15,7 +15,7 @@ import {
 
 const sidebarItems = [
   { label: "Home", href: "/", icon: LayoutGrid },
-  { label: "Practice Planner", href: "/practice", icon: CalendarDays },
+  { label: "Events", href: "/events", icon: CalendarDays },
   { label: "Whiteboard", href: "/whiteboard", icon: PenTool },
   { label: "Game Center", href: "/game-center", icon: Trophy },
   { label: "Messages", href: "/messages", icon: MessageCircle },

@@ -6,7 +6,7 @@ import {
   LayoutGrid,
   Trophy,
   PenTool,
-  ClipboardList,
+  CalendarDays,
   MessageCircle,
 } from "lucide-react";
 
@@ -15,7 +15,7 @@ const navItems = [
   { label: "Game Center", href: "/game-center", icon: Trophy },
   { label: "Messages", href: "/messages", icon: MessageCircle },
   { label: "WhiteBoard", href: "/whiteboard", icon: PenTool },
-  { label: "Practice", href: "/practice", icon: ClipboardList },
+  { label: "Events", href: "/events", icon: CalendarDays },
 ];
 
 export function BottomNav() {

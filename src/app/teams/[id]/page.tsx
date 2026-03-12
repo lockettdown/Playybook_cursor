@@ -6,6 +6,7 @@ import { ArrowLeft, Plus, Edit, Trash2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchTeam, addPlayerToTeam, updatePlayer, deletePlayer, deleteTeam, fetchTeamPlayerStats } from "@/lib/supabase-queries";
 import type { Player } from "@/types";
+import { useEventsStore, type TeamEventType } from "@/store/eventsStore";
 import {
   Dialog,
   DialogContent,
@@ -35,21 +36,15 @@ export default function TeamDetailPage() {
   const [statsView, setStatsView] = useState<"perGame" | "total">("perGame");
   const [deleteTeamConfirmOpen, setDeleteTeamConfirmOpen] = useState(false);
 
-  type EventType = "practice" | "game" | "meeting" | "other";
-  interface TeamEvent {
-    id: string;
-    title: string;
-    date: string;
-    time: string;
-    type: EventType;
-    notes: string;
-  }
-  const [teamEvents, setTeamEvents] = useState<TeamEvent[]>([]);
+  const addEvent = useEventsStore((s) => s.addEvent);
+  const allEvents = useEventsStore((s) => s.events);
+  const teamEvents = allEvents.filter((e) => e.teamId === teamId);
+
   const [addEventOpen, setAddEventOpen] = useState(false);
   const [newEventTitle, setNewEventTitle] = useState("");
   const [newEventDate, setNewEventDate] = useState("");
   const [newEventTime, setNewEventTime] = useState("");
-  const [newEventType, setNewEventType] = useState<EventType>("practice");
+  const [newEventType, setNewEventType] = useState<TeamEventType>("practice");
   const [newEventNotes, setNewEventNotes] = useState("");
 
   const router = useRouter();
@@ -451,17 +446,16 @@ export default function TeamDetailPage() {
             <Button
               disabled={!newEventTitle.trim() || !newEventDate}
               onClick={() => {
-                setTeamEvents((prev) => [
-                  ...prev,
-                  {
-                    id: crypto.randomUUID(),
-                    title: newEventTitle.trim(),
-                    date: newEventDate,
-                    time: newEventTime,
-                    type: newEventType,
-                    notes: newEventNotes.trim(),
-                  },
-                ]);
+                addEvent({
+                  id: crypto.randomUUID(),
+                  teamId,
+                  teamName: team?.name ?? "",
+                  title: newEventTitle.trim(),
+                  date: newEventDate,
+                  time: newEventTime,
+                  type: newEventType,
+                  notes: newEventNotes.trim(),
+                });
                 setAddEventOpen(false);
                 setNewEventTitle("");
                 setNewEventDate("");
