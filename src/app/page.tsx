@@ -15,6 +15,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchTeams, createTeam } from "@/lib/supabase-queries";
 import { PageTransition } from "@/components/layout/PageTransition";
 import { AddTeamModal, type CreatedTeamData } from "@/components/AddTeamModal";
+import { useEventsStore } from "@/store/eventsStore";
 
 const coachTools = [
   { label: "Practice Planner", href: "/practice", icon: CalendarDays },
@@ -23,9 +24,21 @@ const coachTools = [
   { label: "White Board", href: "/whiteboard", icon: PenTool },
 ];
 
+function sortedUpcoming(events: ReturnType<typeof useEventsStore.getState>["events"]) {
+  const today = new Date().toISOString().slice(0, 10);
+  return [...events]
+    .sort((a, b) => {
+      const diffA = Math.abs(new Date(a.date).getTime() - new Date(today).getTime());
+      const diffB = Math.abs(new Date(b.date).getTime() - new Date(today).getTime());
+      return diffA - diffB;
+    });
+}
+
 export default function HomePage() {
   const [addTeamOpen, setAddTeamOpen] = useState(false);
   const queryClient = useQueryClient();
+  const allEvents = useEventsStore((s) => s.events);
+  const upcomingEvents = sortedUpcoming(allEvents);
 
   const { data: teams = [] } = useQuery({
     queryKey: ["teams"],
@@ -135,27 +148,44 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Upcoming Practice */}
+      {/* Upcoming Events */}
       <section className="mt-8">
-        <div className="flex items-center gap-2">
-          <CalendarDays size={24} className="text-pb-blue" />
-          <h2 className="text-lg font-semibold text-pb-blue">
-            Upcoming Events
-          </h2>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CalendarDays size={24} className="text-pb-blue" />
+            <h2 className="text-lg font-semibold text-pb-blue">
+              Upcoming Events
+            </h2>
+          </div>
+          <Link href="/events" className="text-xs font-semibold text-pb-orange">
+            See all
+          </Link>
         </div>
 
-        <Link
-          href="/practice"
-          className="mt-3 flex items-center justify-between rounded-[14px] bg-pb-card px-4 py-4 transition-colors active:bg-pb-card-hover"
-        >
-          <div>
-            <p className="text-sm font-bold text-white">Tuesday Practice</p>
-            <p className="mt-1 text-xs text-pb-muted">
-              Feb 24 &middot; 100 min &middot; Varsity Tigers
+        <div className="mt-3 flex flex-col gap-3">
+          {upcomingEvents.length === 0 ? (
+            <p className="text-pb-muted text-sm text-center py-6">
+              No events yet. Add one from any team&apos;s Events tab.
             </p>
-          </div>
-          <ChevronRight size={20} className="text-pb-muted" />
-        </Link>
+          ) : (
+            upcomingEvents.slice(0, 3).map((evt) => (
+              <div
+                key={evt.id}
+                className="flex items-center justify-between rounded-[14px] bg-pb-card px-4 py-4"
+              >
+                <div>
+                  <p className="text-sm font-bold text-white">{evt.title}</p>
+                  <p className="mt-1 text-xs text-pb-muted">
+                    {evt.date}{evt.time ? ` · ${evt.time}` : ""} · {evt.teamName}
+                  </p>
+                </div>
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-pb-active text-pb-orange capitalize">
+                  {evt.type}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
       </section>
     </div>
 
