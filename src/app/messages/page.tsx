@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Send,
-  Plus,
   UserPlus,
   Trash2,
   Users,
@@ -13,18 +12,16 @@ import {
   Copy,
   Check,
   LogIn,
+  Shield,
 } from "lucide-react";
 import { useAuth } from "@/components/providers/AuthProvider";
 import {
-  fetchAcceptedMembers,
-  fetchMyConversations,
-  getOrCreateConversation,
-  fetchMessages,
-  sendMessage,
-  fetchLastMessages,
+  fetchTeamMessages,
+  sendTeamMessage,
   fetchAppMembers,
   inviteMember,
   removeMember,
+  type TeamMessage,
 } from "@/lib/messages-queries";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import {
@@ -36,117 +33,84 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import type { AppMember, Conversation, Message } from "@/types";
+import type { AppMember } from "@/types";
 
-type PageView = "list" | "thread" | "members";
+type PageView = "chat" | "members";
+
+const roleColors: Record<string, string> = {
+  owner: "text-pb-orange",
+  coach: "text-pb-blue",
+  parent: "text-green-400",
+  player: "text-pb-muted",
+};
+
+const roleBadge: Record<string, string> = {
+  owner: "bg-pb-orange/20 text-pb-orange",
+  coach: "bg-pb-blue/20 text-pb-blue",
+  parent: "bg-green-500/20 text-green-400",
+  player: "bg-pb-muted/20 text-pb-muted",
+};
 
 export default function MessagesPage() {
   const router = useRouter();
   const { user, member, loading } = useAuth();
 
-  const [view, setView] = useState<PageView>("list");
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [membersMap, setMembersMap] = useState<Map<string, AppMember>>(
-    new Map()
-  );
-  const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [messageBody, setMessageBody] = useState("");
+  const [view, setView] = useState<PageView>("chat");
+  const [messages, setMessages] = useState<TeamMessage[]>([]);
+  const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
-  const [loadingConvs, setLoadingConvs] = useState(true);
+  const [loadingMsgs, setLoadingMsgs] = useState(true);
 
-  const [newConvOpen, setNewConvOpen] = useState(false);
-  const [acceptedMembers, setAcceptedMembers] = useState<AppMember[]>([]);
-
-  // Members management
   const [allMembers, setAllMembers] = useState<AppMember[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+
   const [inviteOpen, setInviteOpen] = useState(false);
   const [invEmail, setInvEmail] = useState("");
   const [invName, setInvName] = useState("");
-  const [invRole, setInvRole] = useState<"parent" | "player">("parent");
+  const [invRole, setInvRole] = useState<"coach" | "parent" | "player">("parent");
   const [inviting, setInviting] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
-  const [removeConfirmId, setRemoveConfirmId] = useState<string | null>(null);
+  const [removeConfirmMember, setRemoveConfirmMember] = useState<AppMember | null>(null);
   const [removing, setRemoving] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
   const isOwner = member?.role === "owner";
 
-  // Load members map
-  const loadMembersMap = useCallback(async () => {
+  // ── Load messages ──
+  const loadMessages = useCallback(async () => {
+    setLoadingMsgs(true);
     try {
-      const members = await fetchAcceptedMembers();
-      const map = new Map<string, AppMember>();
-      for (const m of members) map.set(m.id, m);
-      setMembersMap(map);
-      setAcceptedMembers(members);
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  // Load conversations
-  const loadConversations = useCallback(async () => {
-    if (!member) return;
-    setLoadingConvs(true);
-    try {
-      const convs = await fetchMyConversations(member.id);
-      const lastMsgs = await fetchLastMessages(convs.map((c) => c.id));
-      const enriched = convs.map((c) => ({
-        ...c,
-        lastMessage: lastMsgs.get(c.id),
-      }));
-      setConversations(enriched);
-    } catch {
-      /* ignore */
-    } finally {
-      setLoadingConvs(false);
-    }
-  }, [member]);
-
-  useEffect(() => {
-    if (member) {
-      loadMembersMap();
-      loadConversations();
-    }
-  }, [member, loadMembersMap, loadConversations]);
-
-  // Load messages when thread is selected
-  const loadMessages = useCallback(async (convId: string) => {
-    try {
-      const msgs = await fetchMessages(convId);
+      const msgs = await fetchTeamMessages();
       setMessages(msgs);
     } catch {
       /* ignore */
+    } finally {
+      setLoadingMsgs(false);
     }
   }, []);
 
   useEffect(() => {
-    if (selectedConv) loadMessages(selectedConv.id);
-  }, [selectedConv, loadMessages]);
+    if (member) loadMessages();
+  }, [member, loadMessages]);
 
-  // Realtime messages subscription
+  // ── Realtime subscription ──
   useEffect(() => {
-    if (!selectedConv) return;
+    if (!member) return;
     const supabase = getSupabaseBrowser();
     const channel = supabase
-      .channel(`messages:${selectedConv.id}`)
+      .channel("team_messages_realtime")
       .on(
         "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `conversation_id=eq.${selectedConv.id}`,
-        },
+        { event: "INSERT", schema: "public", table: "team_messages" },
         (payload) => {
-          const msg: Message = {
-            id: payload.new.id,
-            conversationId: payload.new.conversation_id,
-            senderId: payload.new.sender_id,
-            body: payload.new.body,
-            createdAt: payload.new.created_at,
+          const row = payload.new as Record<string, unknown>;
+          const msg: TeamMessage = {
+            id: row.id as string,
+            senderId: row.sender_id as string,
+            senderName: (row.sender_name as string) ?? "",
+            senderRole: (row.sender_role as string) ?? "player",
+            body: row.body as string,
+            createdAt: row.created_at as string,
           };
           setMessages((prev) => {
             if (prev.some((m) => m.id === msg.id)) return prev;
@@ -156,76 +120,43 @@ export default function MessagesPage() {
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [selectedConv]);
+    return () => { supabase.removeChannel(channel); };
+  }, [member]);
 
-  // Auto-scroll to bottom on new messages
+  // ── Auto-scroll ──
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSend = useCallback(async () => {
-    if (!messageBody.trim() || !selectedConv || !member || sending) return;
-    setSending(true);
-    try {
-      await sendMessage(selectedConv.id, member.id, messageBody.trim());
-      setMessageBody("");
-    } catch {
-      /* ignore */
-    } finally {
-      setSending(false);
-    }
-  }, [messageBody, selectedConv, member, sending]);
-
-  const openThread = useCallback(
-    (conv: Conversation) => {
-      setSelectedConv(conv);
-      setView("thread");
-    },
-    []
-  );
-
-  const startNewConversation = useCallback(
-    async (otherMemberId: string) => {
-      if (!member) return;
-      try {
-        const conv = await getOrCreateConversation(member.id, otherMemberId);
-        setNewConvOpen(false);
-        setSelectedConv(conv);
-        setView("thread");
-        loadConversations();
-      } catch {
-        /* ignore */
-      }
-    },
-    [member, loadConversations]
-  );
-
-  const getOtherMember = useCallback(
-    (conv: Conversation): AppMember | undefined => {
-      if (!member) return undefined;
-      const otherId =
-        conv.memberId1 === member.id ? conv.memberId2 : conv.memberId1;
-      return membersMap.get(otherId);
-    },
-    [member, membersMap]
-  );
-
-  // Members management
-  const loadAllMembers = useCallback(async () => {
+  // ── Load members ──
+  const loadMembers = useCallback(async () => {
+    setLoadingMembers(true);
     try {
       const members = await fetchAppMembers();
       setAllMembers(members);
     } catch {
       /* ignore */
+    } finally {
+      setLoadingMembers(false);
     }
   }, []);
 
   useEffect(() => {
-    if (view === "members" && isOwner) loadAllMembers();
-  }, [view, isOwner, loadAllMembers]);
+    if (view === "members") loadMembers();
+  }, [view, loadMembers]);
+
+  const handleSend = useCallback(async () => {
+    if (!body.trim() || !member || sending) return;
+    setSending(true);
+    try {
+      await sendTeamMessage(member.id, member.displayName || member.email, member.role, body.trim());
+      setBody("");
+    } catch {
+      /* ignore */
+    } finally {
+      setSending(false);
+    }
+  }, [body, member, sending]);
 
   const handleInvite = useCallback(async () => {
     if (!invEmail.trim() || inviting) return;
@@ -236,57 +167,34 @@ export default function MessagesPage() {
       setInvEmail("");
       setInvName("");
       setInvRole("parent");
-      loadAllMembers();
+      loadMembers();
     } catch {
       /* ignore */
     } finally {
       setInviting(false);
     }
-  }, [invEmail, invName, invRole, inviting, loadAllMembers]);
+  }, [invEmail, invName, invRole, inviting, loadMembers]);
 
   const handleRemove = useCallback(async () => {
-    if (!removeConfirmId || removing) return;
+    if (!removeConfirmMember || removing) return;
     setRemoving(true);
     try {
-      await removeMember(removeConfirmId);
-      setRemoveConfirmId(null);
-      loadAllMembers();
-      loadMembersMap();
+      await removeMember(removeConfirmMember.id);
+      setRemoveConfirmMember(null);
+      loadMembers();
     } catch {
       /* ignore */
     } finally {
       setRemoving(false);
     }
-  }, [removeConfirmId, removing, loadAllMembers, loadMembersMap]);
+  }, [removeConfirmMember, removing, loadMembers]);
 
-  const copyInviteLink = useCallback(
-    (token: string) => {
-      const url = `${window.location.origin}/join/${token}`;
-      navigator.clipboard.writeText(url);
-      setCopiedToken(token);
-      setTimeout(() => setCopiedToken(null), 2000);
-    },
-    []
-  );
-
-  const conversationPartners = useMemo(() => {
-    if (!member) return new Set<string>();
-    const set = new Set<string>();
-    for (const c of conversations) {
-      const otherId =
-        c.memberId1 === member.id ? c.memberId2 : c.memberId1;
-      set.add(otherId);
-    }
-    return set;
-  }, [conversations, member]);
-
-  const availableForNewConv = useMemo(
-    () =>
-      acceptedMembers.filter(
-        (m) => m.id !== member?.id && !conversationPartners.has(m.id)
-      ),
-    [acceptedMembers, member, conversationPartners]
-  );
+  const copyInviteLink = useCallback((token: string) => {
+    const url = `${window.location.origin}/join/${token}`;
+    navigator.clipboard.writeText(url);
+    setCopiedToken(token);
+    setTimeout(() => setCopiedToken(null), 2000);
+  }, []);
 
   // ── Not authenticated ──
   if (!loading && !user) {
@@ -316,114 +224,19 @@ export default function MessagesPage() {
     );
   }
 
-  // ── Thread view ──
-  if (view === "thread" && selectedConv) {
-    const other = getOtherMember(selectedConv);
-    return (
-      <div className="flex min-h-screen flex-col bg-pb-dark">
-        <header className="sticky top-0 z-40 flex items-center gap-3 border-b border-pb-border bg-pb-dark px-4 py-3">
-          <button
-            type="button"
-            onClick={() => {
-              setView("list");
-              setSelectedConv(null);
-              loadConversations();
-            }}
-            className="flex size-10 shrink-0 items-center justify-center rounded-full active:bg-pb-card"
-          >
-            <ArrowLeft size={22} className="text-white" />
-          </button>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-base font-semibold text-white">
-              {other?.displayName ?? "Unknown"}
-            </p>
-            <p className="truncate text-xs text-pb-muted">
-              {other?.role ?? ""}
-            </p>
-          </div>
-        </header>
-
-        <div className="flex flex-1 flex-col overflow-y-auto px-4 py-4 gap-2">
-          {messages.length === 0 && (
-            <p className="py-12 text-center text-sm text-pb-muted">
-              No messages yet. Say hello!
-            </p>
-          )}
-          {messages.map((msg) => {
-            const isMe = msg.senderId === member.id;
-            const sender = membersMap.get(msg.senderId);
-            return (
-              <div
-                key={msg.id}
-                className={`flex flex-col max-w-[80%] ${isMe ? "self-end items-end" : "self-start items-start"}`}
-              >
-                {!isMe && (
-                  <span className="mb-0.5 text-[10px] font-medium text-pb-muted">
-                    {sender?.displayName ?? "Unknown"}
-                  </span>
-                )}
-                <div
-                  className={`rounded-2xl px-4 py-2.5 text-sm ${
-                    isMe
-                      ? "bg-pb-orange text-white rounded-br-md"
-                      : "bg-pb-card text-white rounded-bl-md"
-                  }`}
-                >
-                  {msg.body}
-                </div>
-                <span className="mt-0.5 text-[10px] text-pb-muted">
-                  {new Date(msg.createdAt).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
-              </div>
-            );
-          })}
-          <div ref={messagesEndRef} />
-        </div>
-
-        <div className="sticky bottom-0 border-t border-pb-border bg-pb-dark px-4 py-3 pb-safe">
-          <div className="flex items-center gap-2">
-            <Input
-              value={messageBody}
-              onChange={(e) => setMessageBody(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
-              placeholder="Type a message…"
-              className="flex-1 border-pb-border bg-pb-card text-white placeholder:text-pb-muted"
-            />
-            <button
-              type="button"
-              onClick={handleSend}
-              disabled={!messageBody.trim() || sending}
-              className="flex size-10 shrink-0 items-center justify-center rounded-full bg-pb-orange text-white transition-colors hover:bg-pb-orange/90 disabled:opacity-40"
-            >
-              <Send size={18} />
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Members management view ──
+  // ── Members view ──
   if (view === "members") {
     return (
       <div className="min-h-screen bg-pb-dark px-4 pt-6 pb-28">
         <div className="flex items-center gap-3 mb-6">
           <button
             type="button"
-            onClick={() => setView("list")}
+            onClick={() => setView("chat")}
             className="flex size-10 shrink-0 items-center justify-center rounded-full active:bg-pb-card"
           >
             <ArrowLeft size={22} className="text-white" />
           </button>
-          <h1 className="flex-1 text-xl font-bold text-white">Members</h1>
+          <h1 className="flex-1 text-xl font-bold text-white">Team Members</h1>
           {isOwner && (
             <button
               type="button"
@@ -436,81 +249,83 @@ export default function MessagesPage() {
           )}
         </div>
 
-        <div className="space-y-2">
-          {allMembers.map((m) => (
-            <div
-              key={m.id}
-              className="flex items-center justify-between rounded-xl bg-pb-card px-4 py-3"
-            >
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-semibold text-white">
-                  {m.displayName || m.email}
-                </p>
-                <div className="flex items-center gap-2 text-xs text-pb-muted">
-                  <span className="capitalize">{m.role}</span>
-                  <span>·</span>
-                  <span
-                    className={
-                      m.inviteStatus === "accepted"
-                        ? "text-emerald-400"
-                        : "text-yellow-400"
-                    }
-                  >
-                    {m.inviteStatus}
-                  </span>
+        {loadingMembers ? (
+          <p className="py-12 text-center text-sm text-pb-muted">Loading…</p>
+        ) : (
+          <div className="space-y-2">
+            {allMembers.map((m) => (
+              <div
+                key={m.id}
+                className="flex items-center justify-between rounded-xl bg-pb-card px-4 py-3"
+              >
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-pb-active">
+                    <span className={`text-sm font-bold ${roleColors[m.role] ?? "text-white"}`}>
+                      {(m.displayName || m.email)[0].toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-white">
+                      {m.displayName || m.email}
+                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${roleBadge[m.role]}`}>
+                        {m.role}
+                      </span>
+                      <span className={`text-xs ${m.inviteStatus === "accepted" ? "text-emerald-400" : "text-yellow-400"}`}>
+                        {m.inviteStatus === "accepted" ? "Active" : "Pending"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  {m.inviteToken && (
+                    <button
+                      type="button"
+                      onClick={() => copyInviteLink(m.inviteToken!)}
+                      className="flex size-9 items-center justify-center rounded-full text-pb-muted hover:bg-pb-card-hover hover:text-white"
+                      title="Copy invite link"
+                    >
+                      {copiedToken === m.inviteToken ? (
+                        <Check size={16} className="text-emerald-400" />
+                      ) : (
+                        <Copy size={16} />
+                      )}
+                    </button>
+                  )}
+                  {isOwner && m.role !== "owner" && (
+                    <button
+                      type="button"
+                      onClick={() => setRemoveConfirmMember(m)}
+                      className="flex size-9 items-center justify-center rounded-full text-red-400 hover:bg-red-500/10"
+                      title="Remove member"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
                 </div>
               </div>
-              <div className="flex items-center gap-1">
-                {m.inviteToken && (
-                  <button
-                    type="button"
-                    onClick={() => copyInviteLink(m.inviteToken!)}
-                    className="flex size-9 items-center justify-center rounded-full text-pb-muted hover:bg-pb-card-hover hover:text-white"
-                    title="Copy invite link"
-                  >
-                    {copiedToken === m.inviteToken ? (
-                      <Check size={16} className="text-emerald-400" />
-                    ) : (
-                      <Copy size={16} />
-                    )}
-                  </button>
-                )}
-                {isOwner && m.role !== "owner" && (
-                  <button
-                    type="button"
-                    onClick={() => setRemoveConfirmId(m.id)}
-                    className="flex size-9 items-center justify-center rounded-full text-red-400 hover:bg-red-500/10"
-                    title="Remove member"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-          {allMembers.length === 0 && (
-            <p className="py-8 text-center text-sm text-pb-muted">
-              No members yet. Invite parents and players to get started.
-            </p>
-          )}
-        </div>
+            ))}
+            {allMembers.length === 0 && (
+              <p className="py-8 text-center text-sm text-pb-muted">
+                No members yet. Invite parents, coaches, and players to get started.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Invite dialog */}
         <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
           <DialogContent className="border-pb-border bg-pb-dark text-white">
             <DialogHeader>
-              <DialogTitle className="text-white">
-                Invite a member
-              </DialogTitle>
+              <DialogTitle className="text-white">Invite a member</DialogTitle>
               <p className="text-sm text-pb-muted">
-                They&apos;ll get an invite link to join and start messaging.
+                They&apos;ll get an invite link to join the team chat.
               </p>
             </DialogHeader>
             <div className="space-y-4 py-2">
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-pb-muted">
-                  Email
-                </label>
+                <label className="mb-1.5 block text-xs font-medium text-pb-muted">Email</label>
                 <Input
                   type="email"
                   value={invEmail}
@@ -520,9 +335,7 @@ export default function MessagesPage() {
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-pb-muted">
-                  Display name
-                </label>
+                <label className="mb-1.5 block text-xs font-medium text-pb-muted">Display name</label>
                 <Input
                   value={invName}
                   onChange={(e) => setInvName(e.target.value)}
@@ -531,11 +344,9 @@ export default function MessagesPage() {
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-pb-muted">
-                  Role
-                </label>
+                <label className="mb-1.5 block text-xs font-medium text-pb-muted">Role</label>
                 <div className="flex gap-2">
-                  {(["parent", "player"] as const).map((r) => (
+                  {(["coach", "parent", "player"] as const).map((r) => (
                     <button
                       key={r}
                       type="button"
@@ -553,11 +364,7 @@ export default function MessagesPage() {
               </div>
             </div>
             <DialogFooter className="gap-2 sm:gap-0">
-              <Button
-                variant="outline"
-                onClick={() => setInviteOpen(false)}
-                className="border-pb-border text-white"
-              >
+              <Button variant="outline" onClick={() => setInviteOpen(false)} className="border-pb-border text-white">
                 Cancel
               </Button>
               <Button
@@ -572,32 +379,20 @@ export default function MessagesPage() {
         </Dialog>
 
         {/* Remove confirm dialog */}
-        <Dialog
-          open={!!removeConfirmId}
-          onOpenChange={(open) => !open && setRemoveConfirmId(null)}
-        >
+        <Dialog open={!!removeConfirmMember} onOpenChange={(open) => !open && setRemoveConfirmMember(null)}>
           <DialogContent className="border-pb-border bg-pb-dark text-white">
             <DialogHeader>
               <DialogTitle className="text-white">Remove member?</DialogTitle>
               <p className="text-sm text-pb-muted">
-                This person will no longer be able to access messages. This
-                cannot be undone.
+                <span className="font-semibold text-white">{removeConfirmMember?.displayName || removeConfirmMember?.email}</span> will
+                no longer have access to the team chat. This cannot be undone.
               </p>
             </DialogHeader>
             <DialogFooter className="gap-2 sm:gap-0">
-              <Button
-                variant="outline"
-                onClick={() => setRemoveConfirmId(null)}
-                disabled={removing}
-                className="border-pb-border text-white"
-              >
+              <Button variant="outline" onClick={() => setRemoveConfirmMember(null)} disabled={removing} className="border-pb-border text-white">
                 Cancel
               </Button>
-              <Button
-                onClick={handleRemove}
-                disabled={removing}
-                className="bg-red-600 text-white hover:bg-red-700"
-              >
+              <Button onClick={handleRemove} disabled={removing} className="bg-red-600 text-white hover:bg-red-700">
                 {removing ? "Removing…" : "Remove"}
               </Button>
             </DialogFooter>
@@ -607,129 +402,108 @@ export default function MessagesPage() {
     );
   }
 
-  // ── Conversations list view ──
+  // ── Group chat view ──
   return (
-    <div className="min-h-screen bg-pb-dark px-4 pt-6 pb-28">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-white">Messages</h1>
-        <div className="flex items-center gap-2">
-          {isOwner && (
-            <button
-              type="button"
-              onClick={() => setView("members")}
-              className="flex size-11 items-center justify-center rounded-full bg-pb-card text-pb-muted transition-colors hover:bg-pb-card-hover hover:text-white"
-              title="Manage members"
-            >
-              <Users size={20} />
-            </button>
-          )}
+    <div className="flex h-screen flex-col bg-pb-dark">
+      {/* Header */}
+      <header className="sticky top-0 z-40 flex items-center gap-3 border-b border-pb-border bg-pb-dark px-4 py-3">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-pb-active">
+          <MessageCircle size={18} className="text-pb-orange" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-white text-base">Team Chat</p>
+          <p className="text-xs text-pb-muted">All team members</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setView("members")}
+          className="flex size-10 items-center justify-center rounded-full bg-pb-card text-pb-muted hover:bg-pb-card-hover hover:text-white transition-colors"
+          title="Team members"
+        >
+          <Users size={18} />
+        </button>
+        {isOwner && (
           <button
             type="button"
-            onClick={() => {
-              loadMembersMap();
-              setNewConvOpen(true);
-            }}
-            className="flex size-11 items-center justify-center rounded-full bg-pb-orange text-white transition-colors hover:bg-pb-orange/90"
-            title="New conversation"
+            onClick={() => { setView("members"); setInviteOpen(true); }}
+            className="flex size-10 items-center justify-center rounded-full bg-pb-orange text-white hover:bg-pb-orange/90 transition-colors"
+            title="Manage team"
           >
-            <Plus size={20} />
+            <Shield size={18} />
+          </button>
+        )}
+      </header>
+
+      {/* Messages */}
+      <div className="flex flex-1 flex-col overflow-y-auto px-4 py-4 gap-3 pb-2">
+        {loadingMsgs ? (
+          <p className="py-12 text-center text-sm text-pb-muted">Loading…</p>
+        ) : messages.length === 0 ? (
+          <div className="flex flex-1 flex-col items-center justify-center py-20 text-center">
+            <MessageCircle size={40} className="text-pb-card mb-3" />
+            <p className="text-white font-semibold">No messages yet</p>
+            <p className="text-xs text-pb-muted mt-1">Be the first to say something!</p>
+          </div>
+        ) : (
+          messages.map((msg) => {
+            const isMe = msg.senderId === member.id;
+            return (
+              <div
+                key={msg.id}
+                className={`flex flex-col max-w-[80%] ${isMe ? "self-end items-end" : "self-start items-start"}`}
+              >
+                {!isMe && (
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <span className="text-xs font-semibold text-white">{msg.senderName}</span>
+                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${roleBadge[msg.senderRole] ?? ""}`}>
+                      {msg.senderRole}
+                    </span>
+                  </div>
+                )}
+                <div
+                  className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                    isMe
+                      ? "bg-pb-orange text-white rounded-br-md"
+                      : "bg-pb-card text-white rounded-bl-md"
+                  }`}
+                >
+                  {msg.body}
+                </div>
+                <span className="mt-0.5 text-[10px] text-pb-muted">
+                  {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </span>
+              </div>
+            );
+          })
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input */}
+      <div className="sticky bottom-0 border-t border-pb-border bg-pb-dark px-4 py-3 pb-safe" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
+        <div className="flex items-center gap-2">
+          <Input
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            placeholder="Message the team…"
+            className="flex-1 border-pb-border bg-pb-card text-white placeholder:text-pb-muted"
+          />
+          <button
+            type="button"
+            onClick={handleSend}
+            disabled={!body.trim() || sending}
+            className="flex size-10 shrink-0 items-center justify-center rounded-full bg-pb-orange text-white transition-colors hover:bg-pb-orange/90 disabled:opacity-40"
+          >
+            <Send size={18} />
           </button>
         </div>
       </div>
-
-      {loadingConvs ? (
-        <p className="py-12 text-center text-sm text-pb-muted">Loading…</p>
-      ) : conversations.length === 0 ? (
-        <div className="flex flex-col items-center py-16">
-          <MessageCircle size={48} className="text-pb-card mb-4" />
-          <p className="text-sm text-pb-muted mb-1">No conversations yet</p>
-          <p className="text-xs text-pb-muted">
-            Tap + to start a new conversation
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {conversations.map((conv) => {
-            const other = getOtherMember(conv);
-            return (
-              <button
-                key={conv.id}
-                type="button"
-                onClick={() => openThread(conv)}
-                className="flex w-full items-center gap-3 rounded-xl bg-pb-card px-4 py-3 text-left transition-colors active:bg-pb-card-hover"
-              >
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-pb-active">
-                  <span className="text-sm font-bold text-pb-orange">
-                    {(other?.displayName ?? "?")[0].toUpperCase()}
-                  </span>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold text-white">
-                    {other?.displayName ?? "Unknown"}
-                  </p>
-                  <p className="truncate text-xs text-pb-muted">
-                    {conv.lastMessage?.body ?? "No messages yet"}
-                  </p>
-                </div>
-                {conv.lastMessage && (
-                  <span className="shrink-0 text-[10px] text-pb-muted">
-                    {new Date(conv.lastMessage.createdAt).toLocaleDateString(
-                      [],
-                      { month: "short", day: "numeric" }
-                    )}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* New conversation dialog */}
-      <Dialog open={newConvOpen} onOpenChange={setNewConvOpen}>
-        <DialogContent className="border-pb-border bg-pb-dark text-white">
-          <DialogHeader>
-            <DialogTitle className="text-white">
-              New conversation
-            </DialogTitle>
-            <p className="text-sm text-pb-muted">
-              Pick a member to message
-            </p>
-          </DialogHeader>
-          <div className="max-h-64 space-y-1 overflow-y-auto py-2">
-            {availableForNewConv.length === 0 ? (
-              <p className="py-6 text-center text-sm text-pb-muted">
-                {acceptedMembers.length <= 1
-                  ? "No other members yet. Invite someone first!"
-                  : "You already have a conversation with every member."}
-              </p>
-            ) : (
-              availableForNewConv.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => startNewConversation(m.id)}
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-pb-card-hover"
-                >
-                  <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-pb-active">
-                    <span className="text-xs font-bold text-pb-orange">
-                      {(m.displayName ?? "?")[0].toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-white">
-                      {m.displayName || m.email}
-                    </p>
-                    <p className="text-xs capitalize text-pb-muted">
-                      {m.role}
-                    </p>
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -150,7 +150,7 @@ export interface NavItem {
 
 // --- Messaging ---
 
-export type MemberRole = "owner" | "parent" | "player";
+export type MemberRole = "owner" | "coach" | "parent" | "player";
 export type InviteStatus = "pending" | "accepted";
 
 export interface AppMember {

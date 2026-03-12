@@ -76,7 +76,7 @@ export default function LoginPage() {
             user_id: user.id,
             email,
             display_name: displayName.trim() || email,
-            role: isFirstUser ? "owner" : "player",
+            role: isFirstUser ? "owner" : "player" as const,
             invite_status: "accepted",
           });
         }
