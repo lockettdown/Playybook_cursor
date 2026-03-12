@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { usePermissions } from "@/hooks/usePermissions";
+import { EventDetailSheet } from "@/components/events/EventDetailSheet";
 
 export default function TeamDetailPage() {
   const params = useParams();
@@ -49,6 +50,9 @@ export default function TeamDetailPage() {
   const [newEventNotes, setNewEventNotes] = useState("");
   const [newEventLocation, setNewEventLocation] = useState("");
   const [newEventOpponent, setNewEventOpponent] = useState("");
+
+  const [selectedEvent, setSelectedEvent] = useState<import("@/store/eventsStore").TeamEvent | null>(null);
+  const [eventDetailOpen, setEventDetailOpen] = useState(false);
 
   const router = useRouter();
   const { canEditTeams, canEditEvents } = usePermissions();
@@ -283,7 +287,11 @@ export default function TeamDetailPage() {
                 return (
                   <div
                     key={evt.id}
-                    className="flex items-start justify-between bg-pb-card rounded-[14px] px-4 py-3"
+                    className="flex items-start justify-between bg-pb-card rounded-[14px] px-4 py-3 cursor-pointer active:bg-pb-card-hover transition-colors"
+                    onClick={() => {
+                      setSelectedEvent(evt);
+                      setEventDetailOpen(true);
+                    }}
                   >
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2">
@@ -622,6 +630,15 @@ export default function TeamDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <EventDetailSheet
+        event={selectedEvent ? allEvents.find((e) => e.id === selectedEvent.id) ?? selectedEvent : null}
+        open={eventDetailOpen}
+        onOpenChange={(open) => {
+          setEventDetailOpen(open);
+          if (!open) setSelectedEvent(null);
+        }}
+      />
 
       {/* Delete Team Confirmation */}
       <Dialog

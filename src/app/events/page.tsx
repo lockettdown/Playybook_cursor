@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { CalendarDays, Trash2 } from "lucide-react";
 import { useEventsStore, type TeamEvent } from "@/store/eventsStore";
 import { PageTransition } from "@/components/layout/PageTransition";
 import { usePermissions } from "@/hooks/usePermissions";
+import { EventDetailSheet } from "@/components/events/EventDetailSheet";
 
 const typeColors: Record<string, string> = {
   practice: "bg-pb-blue/20 text-pb-blue",
@@ -33,6 +35,8 @@ export default function EventsPage() {
   const removeEvent = useEventsStore((s) => s.removeEvent);
   const sorted = sortedByDate(events);
   const { canEditEvents } = usePermissions();
+  const [selectedEvent, setSelectedEvent] = useState<TeamEvent | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   return (
     <PageTransition>
@@ -55,7 +59,11 @@ export default function EventsPage() {
             {sorted.map((evt) => (
               <div
                 key={evt.id}
-                className="bg-pb-card rounded-[14px] px-4 py-4 flex flex-col gap-1.5"
+                className="bg-pb-card rounded-[14px] px-4 py-4 flex flex-col gap-1.5 cursor-pointer active:bg-pb-card-hover transition-colors"
+                onClick={() => {
+                  setSelectedEvent(evt);
+                  setDetailOpen(true);
+                }}
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
@@ -67,7 +75,7 @@ export default function EventsPage() {
                   {canEditEvents && (
                     <button
                       type="button"
-                      onClick={() => removeEvent(evt.id)}
+                      onClick={(e) => { e.stopPropagation(); removeEvent(evt.id); }}
                       aria-label="Delete event"
                       className="shrink-0 flex items-center justify-center size-8 rounded-full text-red-400 hover:bg-red-500/10 active:bg-red-500/20 transition-colors"
                     >
@@ -93,6 +101,14 @@ export default function EventsPage() {
           </div>
         )}
       </div>
+      <EventDetailSheet
+        event={selectedEvent ? events.find((e) => e.id === selectedEvent.id) ?? selectedEvent : null}
+        open={detailOpen}
+        onOpenChange={(open) => {
+          setDetailOpen(open);
+          if (!open) setSelectedEvent(null);
+        }}
+      />
     </PageTransition>
   );
 }

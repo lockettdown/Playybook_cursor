@@ -19,6 +19,7 @@ export interface TeamEvent {
 interface EventsState {
   events: TeamEvent[];
   addEvent: (event: TeamEvent) => void;
+  updateEvent: (id: string, updates: Partial<Omit<TeamEvent, "id">>) => void;
   removeEvent: (id: string) => void;
 }
 
@@ -28,6 +29,12 @@ export const useEventsStore = create<EventsState>()(
       events: [],
       addEvent: (event) =>
         set((state) => ({ events: [...state.events, event] })),
+      updateEvent: (id, updates) =>
+        set((state) => ({
+          events: state.events.map((e) =>
+            e.id === id ? { ...e, ...updates } : e
+          ),
+        })),
       removeEvent: (id) =>
         set((state) => ({ events: state.events.filter((e) => e.id !== id) })),
     }),
