@@ -140,7 +140,7 @@ export default function HomePage() {
         <div className="flex items-center gap-2">
           <CalendarDays size={24} className="text-pb-blue" />
           <h2 className="text-lg font-semibold text-pb-blue">
-            Upcoming Practice
+            Upcoming Events
           </h2>
         </div>
 
