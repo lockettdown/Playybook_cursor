@@ -2,11 +2,10 @@
 
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Plus, Edit, ChevronRight, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Edit, Trash2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchTeam, addPlayerToTeam, updatePlayer, deletePlayer, deleteTeam, fetchTeamPlayerStats } from "@/lib/supabase-queries";
-import { plays } from "@/lib/mock-data";
-import type { Play, Player } from "@/types";
+import type { Player } from "@/types";
 import {
   Dialog,
   DialogContent,
@@ -17,12 +16,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
-
-const typeBadgeStyles: Record<string, string> = {
-  offense: "bg-pb-orange/20 text-pb-orange",
-  defense: "bg-red-500/20 text-red-400",
-  special: "bg-pb-blue/20 text-pb-blue",
-};
 
 export default function TeamDetailPage() {
   const params = useParams();
@@ -128,12 +121,6 @@ export default function TeamDetailPage() {
     },
   });
 
-  const playbookPlays: Play[] = team
-    ? team.playbook
-        .map((playId) => plays.find((p) => p.id === playId))
-        .filter((p): p is Play => p !== undefined)
-    : [];
-
   if (isPending || (!team && !error)) {
     return (
       <div className="min-h-screen bg-pb-dark flex items-center justify-center">
@@ -174,7 +161,7 @@ export default function TeamDetailPage() {
       </div>
 
       {/* Stats Bar */}
-      <div className="grid grid-cols-3 gap-3 mb-8">
+      <div className="grid grid-cols-2 gap-3 mb-8">
         <div className="bg-pb-card rounded-[14px] p-4 text-center">
           <p className="text-2xl font-bold text-pb-orange">
             {team.record.wins}-{team.record.losses}
@@ -184,10 +171,6 @@ export default function TeamDetailPage() {
         <div className="bg-pb-card rounded-[14px] p-4 text-center">
           <p className="text-2xl font-bold text-white">{team.players.length}</p>
           <p className="text-pb-muted text-sm mt-1">Players</p>
-        </div>
-        <div className="bg-pb-card rounded-[14px] p-4 text-center">
-          <p className="text-2xl font-bold text-white">{playbookPlays.length}</p>
-          <p className="text-pb-muted text-sm mt-1">Plays</p>
         </div>
       </div>
 
@@ -411,34 +394,6 @@ export default function TeamDetailPage() {
             )}
           </div>
         )}
-      </div>
-
-      {/* Team Playbook */}
-      <div>
-        <h2 className="text-lg font-bold text-white mb-4">Team Playbook</h2>
-        <div className="flex flex-col gap-2">
-          {playbookPlays.map((play) => (
-            <div
-              key={play.id}
-              className="flex items-center justify-between bg-pb-card rounded-[14px] px-4 py-3"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-white font-semibold">{play.name}</span>
-                <span
-                  className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${typeBadgeStyles[play.type] ?? ""}`}
-                >
-                  {play.type}
-                </span>
-              </div>
-              <ChevronRight className="size-5 text-pb-muted" />
-            </div>
-          ))}
-          {playbookPlays.length === 0 && (
-            <p className="text-pb-muted text-center py-6">
-              No plays assigned yet
-            </p>
-          )}
-        </div>
       </div>
 
       {/* Add Event Dialog */}
