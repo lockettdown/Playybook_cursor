@@ -15,7 +15,16 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchTeams, createTeam } from "@/lib/supabase-queries";
 import { PageTransition } from "@/components/layout/PageTransition";
 import { AddTeamModal, type CreatedTeamData } from "@/components/AddTeamModal";
-import { useEventsStore } from "@/store/eventsStore";
+import { useEventsStore, type TeamEventType } from "@/store/eventsStore";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 const coachTools = [
   { label: "Practice Planner", href: "/practice", icon: CalendarDays },
@@ -36,8 +45,18 @@ function sortedUpcoming(events: ReturnType<typeof useEventsStore.getState>["even
 
 export default function HomePage() {
   const [addTeamOpen, setAddTeamOpen] = useState(false);
+  const [addEventOpen, setAddEventOpen] = useState(false);
+  const [newEventTitle, setNewEventTitle] = useState("");
+  const [newEventDate, setNewEventDate] = useState("");
+  const [newEventTime, setNewEventTime] = useState("");
+  const [newEventType, setNewEventType] = useState<TeamEventType>("practice");
+  const [newEventLocation, setNewEventLocation] = useState("");
+  const [newEventOpponent, setNewEventOpponent] = useState("");
+  const [newEventNotes, setNewEventNotes] = useState("");
+  const [newEventTeamId, setNewEventTeamId] = useState("");
   const queryClient = useQueryClient();
   const allEvents = useEventsStore((s) => s.events);
+  const addEvent = useEventsStore((s) => s.addEvent);
   const upcomingEvents = sortedUpcoming(allEvents);
 
   const { data: teams = [] } = useQuery({
@@ -157,9 +176,13 @@ export default function HomePage() {
               Upcoming Events
             </h2>
           </div>
-          <Link href="/events" className="text-xs font-semibold text-pb-orange">
-            See all
-          </Link>
+          <button
+            type="button"
+            onClick={() => setAddEventOpen(true)}
+            className="rounded-[10px] bg-pb-active px-3 py-2 text-xs font-semibold text-pb-orange border-t-[2px] border-r-[2px] border-b-[2px] border-l-[2px] rounded-tl-[20px] rounded-tr-[20px] rounded-br-[20px] rounded-bl-[20px]"
+          >
+            + Add Event
+          </button>
         </div>
 
         <div className="mt-3 flex flex-col gap-3">
@@ -194,6 +217,115 @@ export default function HomePage() {
       onOpenChange={setAddTeamOpen}
       onCreated={handleTeamCreated}
     />
+
+    <Dialog open={addEventOpen} onOpenChange={setAddEventOpen}>
+      <DialogContent className="border-pb-border bg-pb-dark text-white">
+        <DialogHeader>
+          <DialogTitle className="text-white">Add Event</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <Input
+            placeholder="Title"
+            value={newEventTitle}
+            onChange={(e) => setNewEventTitle(e.target.value)}
+            className="bg-pb-card border-pb-border text-white"
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <Input
+              type="date"
+              value={newEventDate}
+              onChange={(e) => setNewEventDate(e.target.value)}
+              className="bg-pb-card border-pb-border text-white"
+            />
+            <Input
+              type="time"
+              value={newEventTime}
+              onChange={(e) => setNewEventTime(e.target.value)}
+              className="bg-pb-card border-pb-border text-white"
+            />
+          </div>
+          <select
+            value={newEventType}
+            onChange={(e) => setNewEventType(e.target.value as TeamEventType)}
+            className="w-full rounded-md border border-pb-border bg-pb-card px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-pb-orange"
+          >
+            <option value="practice">Practice</option>
+            <option value="game">Game</option>
+            <option value="meeting">Meeting</option>
+            <option value="other">Other</option>
+          </select>
+          <select
+            value={newEventTeamId}
+            onChange={(e) => setNewEventTeamId(e.target.value)}
+            className="w-full rounded-md border border-pb-border bg-pb-card px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-pb-orange"
+          >
+            <option value="">Select a team</option>
+            {teams.map((team) => (
+              <option key={team.id} value={team.id}>
+                {team.name}
+              </option>
+            ))}
+          </select>
+          <Input
+            placeholder="Location (optional)"
+            value={newEventLocation}
+            onChange={(e) => setNewEventLocation(e.target.value)}
+            className="bg-pb-card border-pb-border text-white"
+          />
+          <Input
+            placeholder="Opponent (optional)"
+            value={newEventOpponent}
+            onChange={(e) => setNewEventOpponent(e.target.value)}
+            className="bg-pb-card border-pb-border text-white"
+          />
+          <Input
+            placeholder="Notes (optional)"
+            value={newEventNotes}
+            onChange={(e) => setNewEventNotes(e.target.value)}
+            className="bg-pb-card border-pb-border text-white"
+          />
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setAddEventOpen(false)}
+            className="border-pb-border text-white"
+          >
+            Cancel
+          </Button>
+          <Button
+            disabled={!newEventTitle.trim() || !newEventDate || !newEventTeamId}
+            onClick={() => {
+              const selectedTeam = teams.find((t) => t.id === newEventTeamId);
+              addEvent({
+                id: crypto.randomUUID(),
+                teamId: newEventTeamId,
+                teamName: selectedTeam?.name ?? "",
+                title: newEventTitle.trim(),
+                date: newEventDate,
+                time: newEventTime,
+                type: newEventType,
+                location: newEventLocation.trim(),
+                opponent: newEventOpponent.trim(),
+                notes: newEventNotes.trim(),
+              });
+              setAddEventOpen(false);
+              setNewEventTitle("");
+              setNewEventDate("");
+              setNewEventTime("");
+              setNewEventType("practice");
+              setNewEventLocation("");
+              setNewEventOpponent("");
+              setNewEventNotes("");
+              setNewEventTeamId("");
+            }}
+            className="bg-pb-orange text-white hover:bg-pb-orange/90"
+          >
+            Add Event
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     </PageTransition>
   );
 }
