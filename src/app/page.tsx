@@ -30,6 +30,8 @@ export default function HomePage() {
   const { data: teams = [] } = useQuery({
     queryKey: ["teams"],
     queryFn: fetchTeams,
+    staleTime: 0,
+    refetchOnMount: true,
   });
 
   const createTeamMutation = useMutation({
@@ -45,8 +47,10 @@ export default function HomePage() {
       return createTeam(data.teamName, players);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["teams"] });
-      setAddTeamOpen(false);
+      queryClient.refetchQueries({ queryKey: ["teams"] });
+    },
+    onError: (error) => {
+      console.error("Failed to create team:", error);
     },
   });
 
