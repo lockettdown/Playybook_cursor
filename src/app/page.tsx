@@ -10,7 +10,9 @@ import {
   ChevronRight,
   LayoutGrid,
   MessageCircle,
+  Trash2,
 } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchTeams, createTeam } from "@/lib/supabase-queries";
 import { PageTransition } from "@/components/layout/PageTransition";
@@ -60,6 +62,8 @@ export default function HomePage() {
   const queryClient = useQueryClient();
   const allEvents = useEventsStore((s) => s.events);
   const addEvent = useEventsStore((s) => s.addEvent);
+  const removeEvent = useEventsStore((s) => s.removeEvent);
+  const { canEditEvents } = usePermissions();
   const upcomingEvents = sortedUpcoming(allEvents);
 
   const { data: teams = [] } = useQuery({
@@ -195,22 +199,36 @@ export default function HomePage() {
             </p>
           ) : (
             upcomingEvents.slice(0, 3).map((evt) => (
-              <button
+              <div
                 key={evt.id}
-                type="button"
-                onClick={() => { setSelectedEvent(evt); setEventDetailOpen(true); }}
-                className="flex items-center justify-between rounded-[14px] bg-pb-card px-4 py-4 w-full text-left active:bg-pb-card-hover transition-colors"
+                className="flex items-center justify-between rounded-[14px] bg-pb-card px-4 py-4 active:bg-pb-card-hover transition-colors"
               >
-                <div>
+                <button
+                  type="button"
+                  onClick={() => { setSelectedEvent(evt); setEventDetailOpen(true); }}
+                  className="flex-1 text-left min-w-0"
+                >
                   <p className="text-sm font-bold text-white">{evt.title}</p>
                   <p className="mt-1 text-xs text-pb-muted">
                     {evt.date}{evt.time ? ` · ${evt.time}` : ""} · {evt.teamName}
                   </p>
+                </button>
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-pb-active text-pb-orange capitalize">
+                    {evt.type}
+                  </span>
+                  {canEditEvents && (
+                    <button
+                      type="button"
+                      onClick={() => removeEvent(evt.id)}
+                      aria-label="Delete event"
+                      className="flex items-center justify-center size-8 rounded-full text-red-400 hover:bg-red-500/10 active:bg-red-500/20 transition-colors"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  )}
                 </div>
-                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-pb-active text-pb-orange capitalize">
-                  {evt.type}
-                </span>
-              </button>
+              </div>
             ))
           )}
         </div>
