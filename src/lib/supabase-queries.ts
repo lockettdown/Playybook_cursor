@@ -199,28 +199,20 @@ export type TeamPlayerStats = {
 export async function fetchTeamPlayerStats(
   teamId: string
 ): Promise<TeamPlayerStats[]> {
-  const [teamRes, gamesRes] = await Promise.all([
-    fetchTeam(teamId),
-    supabase.from("games").select("id").eq("home_team_id", teamId),
-  ]);
-
-  const team = teamRes;
+  const team = await fetchTeam(teamId);
   if (!team) return [];
 
-  const gameIds = (gamesRes.data ?? []).map((r) => r.id);
-  if (gameIds.length === 0) {
-    return team.players.map((player) => ({
-      player,
-      gamesPlayed: 0,
-      total: { ...EMPTY_STATS },
-      perGame: { ...EMPTY_STATS },
-    }));
+  const playerIds = team.players.map((p) => p.id);
+  if (playerIds.length === 0) {
+    return [];
   }
 
+  // Query stats directly by player ID — works regardless of whether games
+  // have home_team_id set correctly.
   const { data: statsRows, error } = await supabase
     .from("player_game_stats")
     .select("*")
-    .in("game_id", gameIds)
+    .in("player_id", playerIds)
     .eq("team_side", "home");
 
   if (error) return team.players.map((p) => ({
