@@ -11,15 +11,14 @@ export interface Permissions {
 }
 
 export function usePermissions(): Permissions {
-  const { member, loading } = useAuth();
+  const { member } = useAuth();
   const role = member?.role ?? null;
   const isOwner = role === "owner";
   const isCoach = role === "coach";
-  const isReadOnly = role === "parent" || role === "player";
 
-  // Allow editing when: signed in as owner/coach, OR when no member record exists
-  // (unauthenticated or tables not yet configured). Only restrict for explicit parent/player roles.
-  const canEdit = loading ? false : isReadOnly ? false : true;
+  // Only restrict editing for explicit parent/player roles.
+  // null (unauthenticated or no member record) defaults to full access.
+  const canEdit = role !== "parent" && role !== "player";
 
   return {
     role,
