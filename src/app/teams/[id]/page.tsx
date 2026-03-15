@@ -39,6 +39,7 @@ export default function TeamDetailPage() {
   const [deleteTeamConfirmOpen, setDeleteTeamConfirmOpen] = useState(false);
 
   const addEvent = useEventsStore((s) => s.addEvent);
+  const removeEvent = useEventsStore((s) => s.removeEvent);
   const allEvents = useEventsStore((s) => s.events);
   const teamEvents = allEvents.filter((e) => e.teamId === teamId);
 
@@ -287,32 +288,42 @@ export default function TeamDetailPage() {
                 return (
                   <div
                     key={evt.id}
-                    className="flex items-start justify-between bg-pb-card rounded-[14px] px-4 py-3 cursor-pointer active:bg-pb-card-hover transition-colors"
+                    className="bg-pb-card rounded-[14px] px-4 py-3 flex flex-col gap-1.5 cursor-pointer active:bg-pb-card-hover transition-colors"
                     onClick={() => {
                       setSelectedEvent(evt);
                       setEventDetailOpen(true);
                     }}
                   >
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2">
-                        <p className="text-white font-bold">{evt.title}</p>
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${typeColors[evt.type]}`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <p className="text-white font-bold text-base truncate">{evt.title}</p>
+                        <span className={`shrink-0 text-xs font-medium px-2.5 py-0.5 rounded-full ${typeColors[evt.type]}`}>
                           {evt.type}
                         </span>
                       </div>
-                      <p className="text-pb-muted text-sm">
-                        {evt.date}{evt.time ? ` · ${evt.time}` : ""}
-                      </p>
-                      {evt.location ? (
-                        <p className="text-pb-muted text-xs mt-0.5">📍 {evt.location}</p>
-                      ) : null}
-                      {evt.opponent ? (
-                        <p className="text-pb-muted text-xs mt-0.5">vs {evt.opponent}</p>
-                      ) : null}
-                      {evt.notes ? (
-                        <p className="text-pb-muted text-xs mt-0.5">{evt.notes}</p>
-                      ) : null}
+                      {canEditEvents && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); removeEvent(evt.id); }}
+                          aria-label="Delete event"
+                          className="shrink-0 flex items-center justify-center size-8 rounded-full text-red-400 hover:bg-red-500/10 active:bg-red-500/20 transition-colors"
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      )}
                     </div>
+                    <p className="text-pb-muted text-sm">
+                      {evt.date}{evt.time ? ` · ${evt.time}` : ""}
+                    </p>
+                    {evt.location ? (
+                      <p className="text-pb-muted text-xs mt-0.5">📍 {evt.location}</p>
+                    ) : null}
+                    {evt.opponent ? (
+                      <p className="text-pb-muted text-xs mt-0.5">vs {evt.opponent}</p>
+                    ) : null}
+                    {evt.notes ? (
+                      <p className="text-pb-muted text-xs mt-0.5">{evt.notes}</p>
+                    ) : null}
                   </div>
                 );
               })
