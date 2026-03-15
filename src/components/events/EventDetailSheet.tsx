@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Edit, X, MapPin, Users } from "lucide-react";
+import { Edit, X, MapPin } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -203,13 +203,12 @@ export function EventDetailSheet({ event, open, onOpenChange }: EventDetailSheet
           </div>
         ) : (
           <div className="px-5 pb-5 pt-3">
-            <div className="flex items-center gap-2 mb-4">
-              <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${typeColors[event.type]}`}>
-                {event.type}
-              </span>
-            </div>
-
             <div className="space-y-3">
+              <div>
+                <p className="text-pb-muted text-xs font-medium mb-0.5">Title</p>
+                <p className="text-white text-sm">{event.title}</p>
+              </div>
+
               <div>
                 <p className="text-pb-muted text-xs font-medium mb-0.5">Date & Time</p>
                 <p className="text-white text-sm">
@@ -219,36 +218,37 @@ export function EventDetailSheet({ event, open, onOpenChange }: EventDetailSheet
               </div>
 
               <div>
-                <p className="text-pb-muted text-xs font-medium mb-0.5">Team</p>
-                <div className="flex items-center gap-1.5">
-                  <Users className="size-3.5 text-pb-orange" />
-                  <p className="text-white text-sm">{event.teamName}</p>
-                </div>
+                <p className="text-pb-muted text-xs font-medium mb-0.5">Type</p>
+                <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${typeColors[event.type]}`}>
+                  {event.type}
+                </span>
               </div>
 
-              {event.location && (
-                <div>
-                  <p className="text-pb-muted text-xs font-medium mb-0.5">Location</p>
+              <div>
+                <p className="text-pb-muted text-xs font-medium mb-0.5">Location</p>
+                {event.location ? (
                   <div className="flex items-center gap-1.5">
                     <MapPin className="size-3.5 text-pb-muted" />
                     <p className="text-white text-sm">{event.location}</p>
                   </div>
-                </div>
-              )}
+                ) : (
+                  <p className="text-pb-muted text-sm">—</p>
+                )}
+              </div>
 
-              {event.opponent && (
-                <div>
-                  <p className="text-pb-muted text-xs font-medium mb-0.5">Opponent</p>
-                  <p className="text-white text-sm">vs {event.opponent}</p>
-                </div>
-              )}
+              <div>
+                <p className="text-pb-muted text-xs font-medium mb-0.5">Opponent</p>
+                <p className={event.opponent ? "text-white text-sm" : "text-pb-muted text-sm"}>
+                  {event.opponent ? `vs ${event.opponent}` : "—"}
+                </p>
+              </div>
 
-              {event.notes && (
-                <div>
-                  <p className="text-pb-muted text-xs font-medium mb-0.5">Notes</p>
-                  <p className="text-white text-sm">{event.notes}</p>
-                </div>
-              )}
+              <div>
+                <p className="text-pb-muted text-xs font-medium mb-0.5">Notes</p>
+                <p className={event.notes ? "text-white text-sm" : "text-pb-muted text-sm"}>
+                  {event.notes || "—"}
+                </p>
+              </div>
             </div>
 
             {canEditEvents && (
