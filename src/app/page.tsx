@@ -15,7 +15,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchTeams, createTeam } from "@/lib/supabase-queries";
 import { PageTransition } from "@/components/layout/PageTransition";
 import { AddTeamModal, type CreatedTeamData } from "@/components/AddTeamModal";
-import { useEventsStore, type TeamEventType } from "@/store/eventsStore";
+import { useEventsStore, type TeamEvent, type TeamEventType } from "@/store/eventsStore";
+import { EventDetailSheet } from "@/components/events/EventDetailSheet";
 import {
   Dialog,
   DialogContent,
@@ -46,6 +47,8 @@ function sortedUpcoming(events: ReturnType<typeof useEventsStore.getState>["even
 export default function HomePage() {
   const [addTeamOpen, setAddTeamOpen] = useState(false);
   const [addEventOpen, setAddEventOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<TeamEvent | null>(null);
+  const [eventDetailOpen, setEventDetailOpen] = useState(false);
   const [newEventTitle, setNewEventTitle] = useState("");
   const [newEventDate, setNewEventDate] = useState("");
   const [newEventTime, setNewEventTime] = useState("");
@@ -192,9 +195,11 @@ export default function HomePage() {
             </p>
           ) : (
             upcomingEvents.slice(0, 3).map((evt) => (
-              <div
+              <button
                 key={evt.id}
-                className="flex items-center justify-between rounded-[14px] bg-pb-card px-4 py-4"
+                type="button"
+                onClick={() => { setSelectedEvent(evt); setEventDetailOpen(true); }}
+                className="flex items-center justify-between rounded-[14px] bg-pb-card px-4 py-4 w-full text-left active:bg-pb-card-hover transition-colors"
               >
                 <div>
                   <p className="text-sm font-bold text-white">{evt.title}</p>
@@ -205,12 +210,18 @@ export default function HomePage() {
                 <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-pb-active text-pb-orange capitalize">
                   {evt.type}
                 </span>
-              </div>
+              </button>
             ))
           )}
         </div>
       </section>
     </div>
+
+    <EventDetailSheet
+      event={selectedEvent}
+      open={eventDetailOpen}
+      onOpenChange={(open) => { setEventDetailOpen(open); if (!open) setSelectedEvent(null); }}
+    />
 
     <AddTeamModal
       open={addTeamOpen}
