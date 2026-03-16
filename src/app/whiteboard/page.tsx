@@ -46,7 +46,7 @@ type SavedPlay = {
   players: PlayerMarker[];
 };
 
-const MAX_SAVED_PLAYS = 10;
+const MAX_SAVED_PLAYS = 5;
 
 // Default: circles in a row under the court (shelf), blue 1–5 then red 1–5
 function getDefaultPlayers(): PlayerMarker[] {
