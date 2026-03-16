@@ -104,9 +104,9 @@ export function EventDetailSheet({ event, open, onOpenChange }: EventDetailSheet
       <SheetContent
         side="bottom"
         showCloseButton={false}
-        className="bg-pb-dark border-pb-border rounded-t-2xl max-h-[85vh] overflow-y-auto p-0"
+        className="bg-pb-dark border-pb-border rounded-t-2xl max-h-[85vh] flex flex-col p-0"
       >
-        <SheetHeader className="px-5 pt-5 pb-0">
+        <SheetHeader className="px-5 pt-5 pb-0 shrink-0">
           <div className="flex items-center justify-between gap-2">
             <SheetTitle className="text-white text-lg font-bold truncate">
               {editing ? "Edit Event" : event.title}
@@ -125,76 +125,78 @@ export function EventDetailSheet({ event, open, onOpenChange }: EventDetailSheet
         </SheetHeader>
 
         {editing ? (
-          <div className="px-5 pb-5 pt-4 space-y-3">
-            <div>
-              <label className="text-pb-muted text-xs font-medium mb-1 block">Title</label>
-              <Input
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                className="bg-pb-card border-pb-border text-white"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
+          <>
+            <div className="px-5 pt-4 space-y-3 overflow-y-auto flex-1 min-h-0">
               <div>
-                <label className="text-pb-muted text-xs font-medium mb-1 block">Date</label>
+                <label className="text-pb-muted text-xs font-medium mb-1 block">Title</label>
                 <Input
-                  type="date"
-                  value={editDate}
-                  onChange={(e) => setEditDate(e.target.value)}
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="bg-pb-card border-pb-border text-white"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-pb-muted text-xs font-medium mb-1 block">Date</label>
+                  <Input
+                    type="date"
+                    value={editDate}
+                    onChange={(e) => setEditDate(e.target.value)}
+                    className="bg-pb-card border-pb-border text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-pb-muted text-xs font-medium mb-1 block">Time</label>
+                  <Input
+                    type="time"
+                    value={editTime}
+                    onChange={(e) => setEditTime(e.target.value)}
+                    className="bg-pb-card border-pb-border text-white"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-pb-muted text-xs font-medium mb-1 block">Type</label>
+                <select
+                  value={editType}
+                  onChange={(e) => setEditType(e.target.value as TeamEventType)}
+                  className="w-full rounded-md border border-pb-border bg-pb-card px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-pb-orange"
+                >
+                  <option value="practice">Practice</option>
+                  <option value="game">Game</option>
+                  <option value="meeting">Meeting</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-pb-muted text-xs font-medium mb-1 block">Location</label>
+                <Input
+                  placeholder="Optional"
+                  value={editLocation}
+                  onChange={(e) => setEditLocation(e.target.value)}
                   className="bg-pb-card border-pb-border text-white"
                 />
               </div>
               <div>
-                <label className="text-pb-muted text-xs font-medium mb-1 block">Time</label>
+                <label className="text-pb-muted text-xs font-medium mb-1 block">Opponent</label>
                 <Input
-                  type="time"
-                  value={editTime}
-                  onChange={(e) => setEditTime(e.target.value)}
+                  placeholder="Optional"
+                  value={editOpponent}
+                  onChange={(e) => setEditOpponent(e.target.value)}
+                  className="bg-pb-card border-pb-border text-white"
+                />
+              </div>
+              <div>
+                <label className="text-pb-muted text-xs font-medium mb-1 block">Notes</label>
+                <Input
+                  placeholder="Optional"
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
                   className="bg-pb-card border-pb-border text-white"
                 />
               </div>
             </div>
-            <div>
-              <label className="text-pb-muted text-xs font-medium mb-1 block">Type</label>
-              <select
-                value={editType}
-                onChange={(e) => setEditType(e.target.value as TeamEventType)}
-                className="w-full rounded-md border border-pb-border bg-pb-card px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-pb-orange"
-              >
-                <option value="practice">Practice</option>
-                <option value="game">Game</option>
-                <option value="meeting">Meeting</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-pb-muted text-xs font-medium mb-1 block">Location</label>
-              <Input
-                placeholder="Optional"
-                value={editLocation}
-                onChange={(e) => setEditLocation(e.target.value)}
-                className="bg-pb-card border-pb-border text-white"
-              />
-            </div>
-            <div>
-              <label className="text-pb-muted text-xs font-medium mb-1 block">Opponent</label>
-              <Input
-                placeholder="Optional"
-                value={editOpponent}
-                onChange={(e) => setEditOpponent(e.target.value)}
-                className="bg-pb-card border-pb-border text-white"
-              />
-            </div>
-            <div>
-              <label className="text-pb-muted text-xs font-medium mb-1 block">Notes</label>
-              <Input
-                placeholder="Optional"
-                value={editNotes}
-                onChange={(e) => setEditNotes(e.target.value)}
-                className="bg-pb-card border-pb-border text-white"
-              />
-            </div>
-            <div className="flex gap-2 pt-2">
+            <div className="flex gap-2 px-5 py-4 shrink-0 border-t border-pb-border">
               <Button
                 variant="outline"
                 onClick={handleCancel}
@@ -210,58 +212,60 @@ export function EventDetailSheet({ event, open, onOpenChange }: EventDetailSheet
                 Save
               </Button>
             </div>
-          </div>
+          </>
         ) : (
-          <div className="px-5 pb-5 pt-3">
-            <div className="space-y-3">
-              <div>
-                <p className="text-pb-muted text-xs font-medium mb-0.5">Title</p>
-                <p className="text-white text-sm">{event.title}</p>
-              </div>
+          <>
+            <div className="px-5 pt-3 overflow-y-auto flex-1 min-h-0">
+              <div className="space-y-3">
+                <div>
+                  <p className="text-pb-muted text-xs font-medium mb-0.5">Title</p>
+                  <p className="text-white text-sm">{event.title}</p>
+                </div>
 
-              <div>
-                <p className="text-pb-muted text-xs font-medium mb-0.5">Date & Time</p>
-                <p className="text-white text-sm">
-                  {formatDate(event.date)}
-                  {event.time ? ` · ${formatTime(event.time)}` : ""}
-                </p>
-              </div>
+                <div>
+                  <p className="text-pb-muted text-xs font-medium mb-0.5">Date & Time</p>
+                  <p className="text-white text-sm">
+                    {formatDate(event.date)}
+                    {event.time ? ` · ${formatTime(event.time)}` : ""}
+                  </p>
+                </div>
 
-              <div>
-                <p className="text-pb-muted text-xs font-medium mb-0.5">Type</p>
-                <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${typeColors[event.type]}`}>
-                  {event.type}
-                </span>
-              </div>
+                <div>
+                  <p className="text-pb-muted text-xs font-medium mb-0.5">Type</p>
+                  <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${typeColors[event.type]}`}>
+                    {event.type}
+                  </span>
+                </div>
 
-              <div>
-                <p className="text-pb-muted text-xs font-medium mb-0.5">Location</p>
-                {event.location ? (
-                  <div className="flex items-center gap-1.5">
-                    <MapPin className="size-3.5 text-pb-muted" />
-                    <p className="text-white text-sm">{event.location}</p>
-                  </div>
-                ) : (
-                  <p className="text-pb-muted text-sm">—</p>
-                )}
-              </div>
+                <div>
+                  <p className="text-pb-muted text-xs font-medium mb-0.5">Location</p>
+                  {event.location ? (
+                    <div className="flex items-center gap-1.5">
+                      <MapPin className="size-3.5 text-pb-muted" />
+                      <p className="text-white text-sm">{event.location}</p>
+                    </div>
+                  ) : (
+                    <p className="text-pb-muted text-sm">—</p>
+                  )}
+                </div>
 
-              <div>
-                <p className="text-pb-muted text-xs font-medium mb-0.5">Opponent</p>
-                <p className={event.opponent ? "text-white text-sm" : "text-pb-muted text-sm"}>
-                  {event.opponent ? `vs ${event.opponent}` : "—"}
-                </p>
-              </div>
+                <div>
+                  <p className="text-pb-muted text-xs font-medium mb-0.5">Opponent</p>
+                  <p className={event.opponent ? "text-white text-sm" : "text-pb-muted text-sm"}>
+                    {event.opponent ? `vs ${event.opponent}` : "—"}
+                  </p>
+                </div>
 
-              <div>
-                <p className="text-pb-muted text-xs font-medium mb-0.5">Notes</p>
-                <p className={event.notes ? "text-white text-sm" : "text-pb-muted text-sm"}>
-                  {event.notes || "—"}
-                </p>
+                <div>
+                  <p className="text-pb-muted text-xs font-medium mb-0.5">Notes</p>
+                  <p className={event.notes ? "text-white text-sm" : "text-pb-muted text-sm"}>
+                    {event.notes || "—"}
+                  </p>
+                </div>
               </div>
             </div>
 
-            <div className="flex gap-2 mt-5">
+            <div className="flex gap-2 px-5 py-4 shrink-0 border-t border-pb-border">
               {event.type === "game" && (
                 <Button
                   onClick={() => {
@@ -285,7 +289,7 @@ export function EventDetailSheet({ event, open, onOpenChange }: EventDetailSheet
                 </Button>
               )}
             </div>
-          </div>
+          </>
         )}
       </SheetContent>
     </Sheet>
