@@ -350,53 +350,53 @@ export default function WhiteboardPage() {
         )}
       </div>
 
-      <div className="shrink-0 bg-pb-dark px-4 pb-16 pt-3 md:pb-4">
-        <div className="flex items-center justify-center gap-3">
+      <div className="shrink-0 bg-pb-dark px-4 pb-6 pt-3 md:pb-4">
+        <div className="flex items-center justify-center gap-2 md:gap-3">
           <button
             type="button"
             onClick={() => setMode("pen")}
-            className={`flex size-12 items-center justify-center rounded-xl transition-colors ${
+            className={`flex size-10 md:size-12 items-center justify-center rounded-xl transition-colors ${
               mode === "pen"
                 ? "bg-pb-orange text-white"
                 : "bg-pb-card text-pb-muted"
             }`}
             aria-label="Pen tool"
           >
-            <Pencil size={22} />
+            <Pencil size={20} className="md:w-[22px] md:h-[22px]" />
           </button>
           <button
             type="button"
             onClick={() => setMode("players")}
-            className={`flex size-12 items-center justify-center rounded-xl transition-colors ${
+            className={`flex size-10 md:size-12 items-center justify-center rounded-xl transition-colors ${
               mode === "players"
                 ? "bg-pb-orange text-white"
                 : "bg-pb-card text-pb-muted"
             }`}
             aria-label="Players tool"
           >
-            <Users size={22} />
+            <Users size={20} className="md:w-[22px] md:h-[22px]" />
           </button>
           <button
             type="button"
             onClick={undo}
-            className="flex size-12 items-center justify-center rounded-xl bg-pb-card text-pb-muted transition-colors hover:text-white"
+            className="flex size-10 md:size-12 items-center justify-center rounded-xl bg-pb-card text-pb-muted transition-colors hover:text-white"
             aria-label="Undo"
           >
-            <Undo2 size={22} />
+            <Undo2 size={20} className="md:w-[22px] md:h-[22px]" />
           </button>
           <button
             type="button"
             onClick={clear}
-            className="flex size-12 items-center justify-center rounded-xl bg-pb-card text-pb-muted transition-colors hover:text-white"
+            className="flex size-10 md:size-12 items-center justify-center rounded-xl bg-pb-card text-pb-muted transition-colors hover:text-white"
             aria-label="Clear court"
           >
-            <Trash2 size={22} />
+            <Trash2 size={20} className="md:w-[22px] md:h-[22px]" />
           </button>
           <button
             type="button"
             onClick={savePosition}
             disabled={savedPlays.length >= MAX_SAVED_PLAYS}
-            className="flex size-12 items-center justify-center rounded-xl bg-pb-card text-pb-muted transition-colors hover:text-white disabled:opacity-40 disabled:pointer-events-none"
+            className="flex size-10 md:size-12 items-center justify-center rounded-xl bg-pb-card text-pb-muted transition-colors hover:text-white disabled:opacity-40 disabled:pointer-events-none"
             aria-label="Save positions"
             title={
               savedPlays.length >= MAX_SAVED_PLAYS
@@ -404,7 +404,7 @@ export default function WhiteboardPage() {
                 : "Save circle positions"
             }
           >
-            <Save size={22} />
+            <Save size={20} className="md:w-[22px] md:h-[22px]" />
           </button>
         </div>
 
@@ -432,7 +432,7 @@ export default function WhiteboardPage() {
         </div>
 
         {/* Saved plays: fixed-height area so court size stays constant with 0 or N plays */}
-        <div className="mt-2 flex min-h-[72px] flex-col gap-2">
+        <div className="mt-1.5 flex min-h-[52px] md:min-h-[72px] flex-col gap-1.5 md:gap-2">
           <p className="text-center text-xs font-semibold text-pb-muted">
             Saved plays
           </p>
