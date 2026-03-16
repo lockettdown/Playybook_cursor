@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Trophy, Users, ChevronRight, ArrowLeft } from "lucide-react";
+import { Trophy, Users, ArrowLeft } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchTeams, createGame } from "@/lib/supabase-queries";
 import type { Team } from "@/types";
@@ -158,32 +158,24 @@ export default function GameCenterPage() {
               You don’t have a team yet. Create one to continue.
             </p>
           ) : (
-            <div className="mt-3 flex flex-col gap-3">
-              {allTeams.map((team) => (
-                <button
-                  key={team.id}
-                  type="button"
-                  onClick={() => setSelectedTeamId(team.id)}
-                  className={`flex items-center justify-between rounded-[14px] p-4 text-left transition-colors active:bg-pb-card-hover ${
-                    selectedTeamId === team.id
-                      ? "bg-pb-orange/20 ring-2 ring-pb-orange"
-                      : "bg-pb-card"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-12 items-center justify-center rounded-full bg-pb-active">
-                      <Users size={24} className="text-pb-orange" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-white">{team.name}</p>
-                      <p className="text-xs text-pb-muted">
-                        {team.record.wins}-{team.record.losses} · {team.players.length} players
-                      </p>
-                    </div>
-                  </div>
-                  <ChevronRight size={20} className="text-pb-muted" />
-                </button>
-              ))}
+            <div className="mt-3 flex items-center gap-3 rounded-[14px] bg-pb-card p-4">
+              <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-pb-active">
+                <Users size={24} className="text-pb-orange" />
+              </div>
+              <select
+                value={selectedTeamId ?? ""}
+                onChange={(e) => setSelectedTeamId(e.target.value || null)}
+                className="w-full appearance-none rounded-lg border border-white/10 bg-pb-dark px-3 py-2 text-sm font-semibold text-white outline-none transition-colors focus:border-pb-orange focus:ring-2 focus:ring-pb-orange/50"
+              >
+                <option value="" disabled>
+                  Select a team…
+                </option>
+                {allTeams.map((team) => (
+                  <option key={team.id} value={team.id}>
+                    {team.name} ({team.record.wins}-{team.record.losses} · {team.players.length} players)
+                  </option>
+                ))}
+              </select>
             </div>
           )}
         </section>
