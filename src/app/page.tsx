@@ -30,7 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
 const coachTools = [
-  { label: "Practice Planner", href: "/practice", icon: CalendarDays },
+  { label: "Teams", href: "/teams", icon: Users },
   { label: "Game Center", href: "/game-center", icon: Trophy },
   { label: "Messages", href: "/messages", icon: MessageCircle },
   { label: "White Board", href: "/whiteboard", icon: PenTool },
