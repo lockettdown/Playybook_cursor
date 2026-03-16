@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState, useEffect, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Trophy, Users, ArrowLeft } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchTeams, createGame } from "@/lib/supabase-queries";
@@ -16,11 +16,21 @@ const STORAGE_KEY_OPPONENT = "playybook-game-center-opponent";
 type Step = "intro" | "matchup";
 
 export default function GameCenterPage() {
+  return (
+    <Suspense fallback={null}>
+      <GameCenterContent />
+    </Suspense>
+  );
+}
+
+function GameCenterContent() {
   const [step, setStep] = useState<Step>("intro");
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [opponentName, setOpponentName] = useState("");
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
+  const appliedQueryParam = useRef(false);
 
   const { data: teams = [] } = useQuery({
     queryKey: ["teams"],
@@ -36,12 +46,18 @@ export default function GameCenterPage() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    const queryOpponent = searchParams.get("opponent");
+    if (queryOpponent && !appliedQueryParam.current) {
+      appliedQueryParam.current = true;
+      setOpponentName(queryOpponent);
+      return;
+    }
     const storedTeam = sessionStorage.getItem(STORAGE_KEY_TEAM);
     const storedOpponent = sessionStorage.getItem(STORAGE_KEY_OPPONENT);
     if (storedTeam && allTeams.some((t) => t.id === storedTeam))
       setSelectedTeamId(storedTeam);
-    if (storedOpponent) setOpponentName(storedOpponent);
-  }, [allTeams]);
+    if (storedOpponent && !queryOpponent) setOpponentName(storedOpponent);
+  }, [allTeams, searchParams]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;

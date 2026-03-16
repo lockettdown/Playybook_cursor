@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Edit, X, MapPin } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Edit, X, MapPin, Trophy } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -48,6 +49,7 @@ interface EventDetailSheetProps {
 export function EventDetailSheet({ event, open, onOpenChange }: EventDetailSheetProps) {
   const { canEditEvents } = usePermissions();
   const updateEvent = useEventsStore((s) => s.updateEvent);
+  const router = useRouter();
   const [editing, setEditing] = useState(false);
 
   const [editTitle, setEditTitle] = useState("");
@@ -259,15 +261,30 @@ export function EventDetailSheet({ event, open, onOpenChange }: EventDetailSheet
               </div>
             </div>
 
-            {canEditEvents && (
-              <Button
-                onClick={startEditing}
-                className="w-full mt-5 bg-pb-orange text-white hover:bg-pb-orange/90"
-              >
-                <Edit className="size-4 mr-2" />
-                Edit Event
-              </Button>
-            )}
+            <div className="flex gap-2 mt-5">
+              {event.type === "game" && (
+                <Button
+                  onClick={() => {
+                    const params = event.opponent ? `?opponent=${encodeURIComponent(event.opponent)}` : "";
+                    onOpenChange(false);
+                    router.push(`/game-center${params}`);
+                  }}
+                  className={`${canEditEvents ? "flex-1" : "w-full"} bg-pb-blue text-white hover:bg-pb-blue/90`}
+                >
+                  <Trophy className="size-4 mr-2" />
+                  Score
+                </Button>
+              )}
+              {canEditEvents && (
+                <Button
+                  onClick={startEditing}
+                  className={`${event.type === "game" ? "flex-1" : "w-full"} bg-pb-orange text-white hover:bg-pb-orange/90`}
+                >
+                  <Edit className="size-4 mr-2" />
+                  Edit Event
+                </Button>
+              )}
+            </div>
           </div>
         )}
       </SheetContent>
