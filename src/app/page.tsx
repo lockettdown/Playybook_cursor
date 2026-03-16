@@ -59,6 +59,8 @@ export default function HomePage() {
   const [addEventOpen, setAddEventOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<TeamEvent | null>(null);
   const [eventDetailOpen, setEventDetailOpen] = useState(false);
+  const [deleteEventConfirmOpen, setDeleteEventConfirmOpen] = useState(false);
+  const [eventToDelete, setEventToDelete] = useState<string | null>(null);
   const [newEventTitle, setNewEventTitle] = useState("");
   const [newEventDate, setNewEventDate] = useState("");
   const [newEventTime, setNewEventTime] = useState("");
@@ -228,7 +230,7 @@ export default function HomePage() {
                   {canEditEvents && (
                     <button
                       type="button"
-                      onClick={() => removeEvent(evt.id)}
+                      onClick={() => { setEventToDelete(evt.id); setDeleteEventConfirmOpen(true); }}
                       aria-label="Delete event"
                       className="flex items-center justify-center size-8 rounded-full text-red-400 hover:bg-red-500/10 active:bg-red-500/20 transition-colors"
                     >
@@ -359,6 +361,38 @@ export default function HomePage() {
             className="bg-pb-orange text-white hover:bg-pb-orange/90"
           >
             Add Event
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    <Dialog
+      open={deleteEventConfirmOpen}
+      onOpenChange={setDeleteEventConfirmOpen}
+    >
+      <DialogContent className="border-pb-border bg-pb-dark text-white">
+        <DialogHeader>
+          <DialogTitle className="text-white">Delete event?</DialogTitle>
+          <p className="text-sm text-pb-muted">
+            Are you sure you want to delete this event? This cannot be undone.
+          </p>
+        </DialogHeader>
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button
+            variant="outline"
+            onClick={() => { setDeleteEventConfirmOpen(false); setEventToDelete(null); }}
+            className="border-pb-border text-white"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={() => {
+              if (eventToDelete) removeEvent(eventToDelete);
+              setDeleteEventConfirmOpen(false);
+              setEventToDelete(null);
+            }}
+            className="bg-red-600 text-white hover:bg-red-700"
+          >
+            Delete event
           </Button>
         </DialogFooter>
       </DialogContent>
