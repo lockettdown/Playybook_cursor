@@ -112,7 +112,7 @@ export default function GameCenterPage() {
                 <p className="text-center text-lg font-bold text-white">
                   {selectedTeam.name}
                 </p>
-                <p className="text-xs text-pb-muted">Your team</p>
+                <p className="text-xs text-pb-muted">Select your team</p>
               </div>
               <p className="text-center text-xl font-bold text-pb-muted">vs</p>
               <div className="flex flex-col items-center gap-2">
@@ -152,7 +152,7 @@ export default function GameCenterPage() {
         </p>
 
         <section className="mt-8">
-          <h2 className="text-lg font-semibold text-pb-blue">Your team</h2>
+          <h2 className="text-lg font-semibold text-pb-blue">Select your team</h2>
           {allTeams.length === 0 ? (
             <p className="mt-2 text-sm text-pb-muted">
               You don’t have a team yet. Create one to continue.
