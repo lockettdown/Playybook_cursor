@@ -31,6 +31,14 @@ function formatDate(dateStr: string): string {
   });
 }
 
+function formatTime(timeStr: string): string {
+  if (!timeStr) return "";
+  const [hours, minutes] = timeStr.split(":").map(Number);
+  const period = hours >= 12 ? "PM" : "AM";
+  const displayHours = hours % 12 || 12;
+  return `${displayHours}:${minutes.toString().padStart(2, "0")} ${period}`;
+}
+
 interface EventDetailSheetProps {
   event: TeamEvent | null;
   open: boolean;
@@ -213,7 +221,7 @@ export function EventDetailSheet({ event, open, onOpenChange }: EventDetailSheet
                 <p className="text-pb-muted text-xs font-medium mb-0.5">Date & Time</p>
                 <p className="text-white text-sm">
                   {formatDate(event.date)}
-                  {event.time ? ` · ${event.time}` : ""}
+                  {event.time ? ` · ${formatTime(event.time)}` : ""}
                 </p>
               </div>
 

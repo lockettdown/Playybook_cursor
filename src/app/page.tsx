@@ -36,6 +36,14 @@ const coachTools = [
   { label: "White Board", href: "/whiteboard", icon: PenTool },
 ];
 
+function formatTime(timeStr: string): string {
+  if (!timeStr) return "";
+  const [hours, minutes] = timeStr.split(":").map(Number);
+  const period = hours >= 12 ? "PM" : "AM";
+  const displayHours = hours % 12 || 12;
+  return `${displayHours}:${minutes.toString().padStart(2, "0")} ${period}`;
+}
+
 function sortedUpcoming(events: ReturnType<typeof useEventsStore.getState>["events"]) {
   const today = new Date().toISOString().slice(0, 10);
   return [...events]
@@ -210,7 +218,7 @@ export default function HomePage() {
                 >
                   <p className="text-sm font-bold text-white">{evt.title}</p>
                   <p className="mt-1 text-xs text-pb-muted">
-                    {evt.date}{evt.time ? ` · ${evt.time}` : ""} · {evt.teamName}
+                    {evt.date}{evt.time ? ` · ${formatTime(evt.time)}` : ""} · {evt.teamName}
                   </p>
                 </button>
                 <div className="flex items-center gap-2 shrink-0 ml-2">
