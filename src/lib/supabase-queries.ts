@@ -482,8 +482,6 @@ export async function upsertPlayerGameStats(
       ft_made: stats.ftMade,
       ft_attempts: stats.ftAttempts,
       rebounds: stats.rebounds,
-      offensive_rebounds: stats.offensiveRebounds,
-      defensive_rebounds: stats.defensiveRebounds,
       assists: stats.assists,
       steals: stats.steals,
       blocks: stats.blocks,
