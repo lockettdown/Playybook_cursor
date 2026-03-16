@@ -104,7 +104,7 @@ export function EventDetailSheet({ event, open, onOpenChange }: EventDetailSheet
       <SheetContent
         side="bottom"
         showCloseButton={false}
-        className="bg-pb-dark border-pb-border rounded-t-2xl max-h-[85vh] flex flex-col p-0"
+        className="bg-pb-dark border-pb-border rounded-t-2xl max-h-[90vh] flex flex-col p-0"
       >
         <SheetHeader className="px-5 pt-5 pb-0 shrink-0">
           <div className="flex items-center justify-between gap-2">
@@ -215,7 +215,7 @@ export function EventDetailSheet({ event, open, onOpenChange }: EventDetailSheet
           </>
         ) : (
           <>
-            <div className="px-5 pt-3 overflow-y-auto flex-1 min-h-0">
+            <div className="px-5 pt-3 pb-0 overflow-y-auto flex-1 min-h-0">
               <div className="space-y-3">
                 <div>
                   <p className="text-pb-muted text-xs font-medium mb-0.5">Title</p>
