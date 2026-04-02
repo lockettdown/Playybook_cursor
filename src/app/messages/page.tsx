@@ -419,6 +419,7 @@ export default function MessagesPage() {
         ) : messages.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center py-20 text-center">
             <MessageCircle size={40} className="text-pb-card mb-3" />
+            <p className="text-pb-orange text-xs font-semibold uppercase tracking-wide">Coming soon</p>
             <p className="text-white font-semibold">No messages yet</p>
             <p className="text-xs text-pb-muted mt-1">Be the first to say something!</p>
           </div>

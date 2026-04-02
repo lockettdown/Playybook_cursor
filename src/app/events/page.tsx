@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { CalendarDays, Trash2 } from "lucide-react";
-import { useEventsStore, type TeamEvent } from "@/store/eventsStore";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { fetchTeamEvents, deleteTeamEvent } from "@/lib/supabase-queries";
+import type { TeamEvent } from "@/lib/supabase-queries";
 import { PageTransition } from "@/components/layout/PageTransition";
 import { usePermissions } from "@/hooks/usePermissions";
 import { EventDetailSheet } from "@/components/events/EventDetailSheet";
@@ -31,12 +33,26 @@ function formatDate(dateStr: string): string {
 }
 
 export default function EventsPage() {
-  const events = useEventsStore((s) => s.events);
-  const removeEvent = useEventsStore((s) => s.removeEvent);
-  const sorted = sortedByDate(events);
+  const queryClient = useQueryClient();
   const { canEditEvents } = usePermissions();
   const [selectedEvent, setSelectedEvent] = useState<TeamEvent | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+
+  const { data: events = [] } = useQuery({
+    queryKey: ["teamEvents"],
+    queryFn: fetchTeamEvents,
+    staleTime: 0,
+    refetchOnMount: true,
+  });
+
+  const deleteEventMutation = useMutation({
+    mutationFn: deleteTeamEvent,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["teamEvents"] });
+    },
+  });
+
+  const sorted = sortedByDate(events);
 
   return (
     <PageTransition>
@@ -75,7 +91,7 @@ export default function EventsPage() {
                   {canEditEvents && (
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); removeEvent(evt.id); }}
+                      onClick={(e) => { e.stopPropagation(); deleteEventMutation.mutate(evt.id); }}
                       aria-label="Delete event"
                       className="shrink-0 flex items-center justify-center size-8 rounded-full text-red-400 hover:bg-red-500/10 active:bg-red-500/20 transition-colors"
                     >
@@ -102,7 +118,7 @@ export default function EventsPage() {
         )}
       </div>
       <EventDetailSheet
-        event={selectedEvent ? events.find((e) => e.id === selectedEvent.id) ?? selectedEvent : null}
+        event={selectedEvent}
         open={detailOpen}
         onOpenChange={(open) => {
           setDetailOpen(open);

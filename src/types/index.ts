@@ -156,6 +156,7 @@ export type InviteStatus = "pending" | "accepted";
 export interface AppMember {
   id: string;
   userId: string | null;
+  ownerId: string | null;
   email: string;
   displayName: string;
   role: MemberRole;

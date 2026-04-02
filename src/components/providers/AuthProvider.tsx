@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import type { User, Session } from "@supabase/supabase-js";
+import { useQueryClient } from "@tanstack/react-query";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import type { AppMember } from "@/types";
 
@@ -40,6 +41,7 @@ function mapMemberRow(row: Record<string, unknown>): AppMember {
   return {
     id: row.id as string,
     userId: (row.user_id as string) ?? null,
+    ownerId: (row.owner_id as string) ?? null,
     email: row.email as string,
     displayName: (row.display_name as string) ?? "",
     role: row.role as AppMember["role"],
@@ -51,6 +53,7 @@ function mapMemberRow(row: Record<string, unknown>): AppMember {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [supabase] = useState(() => getSupabaseBrowser());
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -75,9 +78,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, fetchMember]);
 
   useEffect(() => {
+    let prevUserId: string | null = null;
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, sess) => {
+      const newUserId = sess?.user?.id ?? null;
+      if (prevUserId && newUserId !== prevUserId) {
+        queryClient.clear();
+      }
+      prevUserId = newUserId;
+
       setSession(sess);
       setUser(sess?.user ?? null);
       if (sess?.user) {
@@ -89,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     supabase.auth.getSession().then(({ data: { session: s } }) => {
+      prevUserId = s?.user?.id ?? null;
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) fetchMember(s.user.id);
@@ -96,7 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => subscription.unsubscribe();
-  }, [supabase, fetchMember]);
+  }, [supabase, fetchMember, queryClient]);
 
   const signIn = useCallback(
     async (email: string, password: string): Promise<string | null> => {
@@ -119,10 +131,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
+    queryClient.clear();
     setUser(null);
     setSession(null);
     setMember(null);
-  }, [supabase]);
+  }, [supabase, queryClient]);
 
   return (
     <AuthContext.Provider

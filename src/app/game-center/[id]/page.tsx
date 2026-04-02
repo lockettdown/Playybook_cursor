@@ -175,8 +175,15 @@ export default function LiveScoringPage() {
       if (onCourtIds.length >= MAX_ON_COURT || onCourtIds.includes(playerId))
         return;
       setOnCourtIds((prev) => [...prev, playerId]);
+      if (gameId) {
+        const statsForTeam = activeTeam === "home" ? homeStats : awayStats;
+        const current = statsForTeam.get(playerId) ?? { ...EMPTY_STATS };
+        upsertPlayerGameStats(gameId, playerId, activeTeam, current).catch(
+          console.error
+        );
+      }
     },
-    [onCourtIds, setOnCourtIds]
+    [onCourtIds, setOnCourtIds, gameId, activeTeam, homeStats, awayStats]
   );
 
   const removeFromCourt = useCallback(
@@ -1132,7 +1139,11 @@ export default function LiveScoringPage() {
                           {rows.map(({ player, stats: s }) => (
                             <tr
                               key={player.id}
-                              className="border-b border-white/5 text-white"
+                              onClick={() => {
+                                setSelectedStatsPlayerId(player.id);
+                                setBottomTab("shotchart");
+                              }}
+                              className="cursor-pointer border-b border-white/5 text-white transition-colors hover:bg-pb-surface/40"
                             >
                               <td className="sticky left-0 bg-pb-card px-3 py-2 font-medium whitespace-nowrap">
                                 #{player.number} {player.name}

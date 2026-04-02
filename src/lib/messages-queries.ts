@@ -14,6 +14,7 @@ function mapMember(row: Record<string, unknown>): AppMember {
   return {
     id: row.id as string,
     userId: (row.user_id as string) ?? null,
+    ownerId: (row.owner_id as string) ?? null,
     email: row.email as string,
     displayName: (row.display_name as string) ?? "",
     role: row.role as AppMember["role"],
@@ -64,6 +65,8 @@ export async function inviteMember(
   role: "coach" | "parent" | "player"
 ): Promise<AppMember> {
   const supabase = getSupabaseBrowser();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
   const token = crypto.randomUUID();
   const { data, error } = await supabase
     .from("app_members")
@@ -73,6 +76,7 @@ export async function inviteMember(
       role,
       invite_token: token,
       invite_status: "pending",
+      owner_id: user.id,
     })
     .select("*")
     .single();

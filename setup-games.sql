@@ -105,10 +105,18 @@ alter table player_game_stats add column if not exists turnovers          intege
 alter table player_game_stats add column if not exists fouls              integer not null default 0;
 alter table player_game_stats add column if not exists minutes            integer not null default 0;
 
--- ─── Disable RLS (dev) ───────────────────────────────────────────────────────
-alter table teams             disable row level security;
-alter table players           disable row level security;
-alter table games             disable row level security;
-alter table game_rosters      disable row level security;
-alter table game_events       disable row level security;
-alter table player_game_stats disable row level security;
+-- ─── Add user_id columns (idempotent) ────────────────────────────────────────
+alter table teams             add column if not exists user_id uuid default auth.uid() references auth.users(id);
+alter table players           add column if not exists user_id uuid default auth.uid() references auth.users(id);
+alter table games             add column if not exists user_id uuid default auth.uid() references auth.users(id);
+alter table game_rosters      add column if not exists user_id uuid default auth.uid() references auth.users(id);
+alter table game_events       add column if not exists user_id uuid default auth.uid() references auth.users(id);
+alter table player_game_stats add column if not exists user_id uuid default auth.uid() references auth.users(id);
+
+-- ─── Enable RLS ──────────────────────────────────────────────────────────────
+alter table teams             enable row level security;
+alter table players           enable row level security;
+alter table games             enable row level security;
+alter table game_rosters      enable row level security;
+alter table game_events       enable row level security;
+alter table player_game_stats enable row level security;

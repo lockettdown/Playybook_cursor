@@ -44,41 +44,45 @@ export default function LoginPage() {
       } = await supabase.auth.getUser();
 
       if (user) {
-        const { data: existingMembers } = await supabase
+        const { data: existingMember } = await supabase
           .from("app_members")
           .select("id")
-          .eq("role", "owner")
+          .eq("user_id", user.id)
           .limit(1);
 
-        const isFirstUser = !existingMembers || existingMembers.length === 0;
+        const alreadyHasAccount =
+          existingMember && existingMember.length > 0;
 
-        const { data: pendingByEmail } = await supabase
-          .from("app_members")
-          .select("*")
-          .eq("email", email)
-          .eq("invite_status", "pending")
-          .limit(1);
-
-        if (pendingByEmail && pendingByEmail.length > 0) {
-          await supabase
+        if (!alreadyHasAccount) {
+          const { data: pendingByEmail } = await supabase
             .from("app_members")
-            .update({
+            .select("*")
+            .eq("email", email)
+            .eq("invite_status", "pending")
+            .limit(1);
+
+          if (pendingByEmail && pendingByEmail.length > 0) {
+            await supabase
+              .from("app_members")
+              .update({
+                user_id: user.id,
+                invite_status: "accepted",
+                invite_token: null,
+                display_name:
+                  displayName.trim() || pendingByEmail[0].display_name || email,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", pendingByEmail[0].id);
+          } else {
+            await supabase.from("app_members").insert({
               user_id: user.id,
+              owner_id: user.id,
+              email,
+              display_name: displayName.trim() || email,
+              role: "owner" as const,
               invite_status: "accepted",
-              invite_token: null,
-              display_name:
-                displayName.trim() || pendingByEmail[0].display_name || email,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", pendingByEmail[0].id);
-        } else {
-          await supabase.from("app_members").insert({
-            user_id: user.id,
-            email,
-            display_name: displayName.trim() || email,
-            role: isFirstUser ? "owner" : "player" as const,
-            invite_status: "accepted",
-          });
+            });
+          }
         }
       }
 

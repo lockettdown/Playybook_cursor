@@ -2,11 +2,24 @@
 
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Plus, Edit, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Edit, ChevronRight } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchTeam, addPlayerToTeam, updatePlayer, deletePlayer, deleteTeam, fetchTeamPlayerStats } from "@/lib/supabase-queries";
-import type { Player } from "@/types";
-import { useEventsStore, type TeamEventType } from "@/store/eventsStore";
+import {
+  fetchTeam,
+  addPlayerToTeam,
+  updateTeam,
+  updatePlayer,
+  deletePlayer,
+  deleteTeam,
+  fetchTeamPlayerStats,
+  fetchTeamEventsByTeam,
+  createTeamEvent,
+  deleteTeamEvent,
+  fetchPlayerGameLines,
+  upsertPlayerGameStats,
+} from "@/lib/supabase-queries";
+import type { Player, PlayerGameStats } from "@/types";
+import type { TeamEvent, TeamEventType, PlayerGameStatLine } from "@/lib/supabase-queries";
 import {
   Dialog,
   DialogContent,
@@ -20,6 +33,23 @@ import { useState, useEffect } from "react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { EventDetailSheet } from "@/components/events/EventDetailSheet";
 
+function formatTeamEventDateTime(date: string, time: string): string {
+  if (!date) return "";
+  if (!time) return date;
+
+  const localDate = new Date(`${date}T${time}`);
+  if (Number.isNaN(localDate.getTime())) return `${date} · ${time}`;
+
+  const formattedTime = new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZoneName: "short",
+  }).format(localDate);
+
+  return `${date} · ${formattedTime}`;
+}
+
 export default function TeamDetailPage() {
   const params = useParams();
   const teamId = params.id as string;
@@ -32,16 +62,17 @@ export default function TeamDetailPage() {
   const [editName, setEditName] = useState("");
   const [editNumber, setEditNumber] = useState("");
   const [editPosition, setEditPosition] = useState("");
+  const [isEditingPlayer, setIsEditingPlayer] = useState(false);
+  const [deletePlayerConfirmOpen, setDeletePlayerConfirmOpen] = useState(false);
 
   type SectionTab = "roster" | "stats" | "events";
   const [sectionTab, setSectionTab] = useState<SectionTab>("roster");
   const [statsView, setStatsView] = useState<"perGame" | "total">("perGame");
   const [deleteTeamConfirmOpen, setDeleteTeamConfirmOpen] = useState(false);
-
-  const addEvent = useEventsStore((s) => s.addEvent);
-  const removeEvent = useEventsStore((s) => s.removeEvent);
-  const allEvents = useEventsStore((s) => s.events);
-  const teamEvents = allEvents.filter((e) => e.teamId === teamId);
+  const [editTeamOpen, setEditTeamOpen] = useState(false);
+  const [editTeamName, setEditTeamName] = useState("");
+  const [editTeamWins, setEditTeamWins] = useState("");
+  const [editTeamLosses, setEditTeamLosses] = useState("");
 
   const [addEventOpen, setAddEventOpen] = useState(false);
   const [newEventTitle, setNewEventTitle] = useState("");
@@ -52,10 +83,17 @@ export default function TeamDetailPage() {
   const [newEventLocation, setNewEventLocation] = useState("");
   const [newEventOpponent, setNewEventOpponent] = useState("");
 
-  const [selectedEvent, setSelectedEvent] = useState<import("@/store/eventsStore").TeamEvent | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<TeamEvent | null>(null);
   const [eventDetailOpen, setEventDetailOpen] = useState(false);
   const [deleteEventConfirmOpen, setDeleteEventConfirmOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<string | null>(null);
+
+  const [editStatsPlayer, setEditStatsPlayer] = useState<Player | null>(null);
+  const [editStatsGameLines, setEditStatsGameLines] = useState<PlayerGameStatLine[]>([]);
+  const [editStatsSelectedGame, setEditStatsSelectedGame] = useState<PlayerGameStatLine | null>(null);
+  const [editStatsForm, setEditStatsForm] = useState<PlayerGameStats | null>(null);
+  const [editStatsLoading, setEditStatsLoading] = useState(false);
+  const [editStatsSaving, setEditStatsSaving] = useState(false);
 
   const router = useRouter();
   const { canEditTeams, canEditEvents } = usePermissions();
@@ -75,11 +113,75 @@ export default function TeamDetailPage() {
     enabled: !!teamId,
   });
 
+  const { data: teamEvents = [] } = useQuery({
+    queryKey: ["teamEvents", teamId],
+    queryFn: () => fetchTeamEventsByTeam(teamId),
+    enabled: !!teamId,
+    staleTime: 0,
+    refetchOnMount: true,
+  });
+
   const { data: teamPlayerStats = [] } = useQuery({
     queryKey: ["teamPlayerStats", teamId],
     queryFn: () => fetchTeamPlayerStats(teamId),
     enabled: !!teamId && sectionTab === "stats",
   });
+
+  const openEditStats = async (player: Player) => {
+    setEditStatsPlayer(player);
+    setEditStatsSelectedGame(null);
+    setEditStatsForm(null);
+    setEditStatsLoading(true);
+    try {
+      const lines = await fetchPlayerGameLines(player.id);
+      setEditStatsGameLines(lines);
+    } catch {
+      setEditStatsGameLines([]);
+    } finally {
+      setEditStatsLoading(false);
+    }
+  };
+
+  const closeEditStats = () => {
+    setEditStatsPlayer(null);
+    setEditStatsGameLines([]);
+    setEditStatsSelectedGame(null);
+    setEditStatsForm(null);
+  };
+
+  const selectGameLine = (line: PlayerGameStatLine) => {
+    setEditStatsSelectedGame(line);
+    setEditStatsForm({ ...line.stats });
+  };
+
+  const handleEditStatsSave = async () => {
+    if (!editStatsSelectedGame || !editStatsForm || !editStatsPlayer) return;
+    setEditStatsSaving(true);
+    try {
+      await upsertPlayerGameStats(
+        editStatsSelectedGame.gameId,
+        editStatsPlayer.id,
+        "home",
+        editStatsForm
+      );
+      await queryClient.invalidateQueries({ queryKey: ["teamPlayerStats", teamId] });
+      await queryClient.refetchQueries({ queryKey: ["teamPlayerStats", teamId], type: "active" });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      closeEditStats();
+      setEditStatsSaving(false);
+    }
+  };
+
+  const updateEditField = (key: keyof PlayerGameStats, value: number) => {
+    if (!editStatsForm) return;
+    let next = { ...editStatsForm, [key]: value };
+    if (key === "offensiveRebounds" || key === "defensiveRebounds") {
+      next = { ...next, rebounds: next.offensiveRebounds + next.defensiveRebounds };
+    }
+    setEditStatsForm(next);
+  };
 
   const addPlayerMutation = useMutation({
     mutationFn: () =>
@@ -127,6 +229,34 @@ export default function TeamDetailPage() {
     },
   });
 
+  const updateTeamMutation = useMutation({
+    mutationFn: () =>
+      updateTeam(teamId, {
+        name: editTeamName.trim() || team.name,
+        wins: Math.max(0, parseInt(editTeamWins, 10) || 0),
+        losses: Math.max(0, parseInt(editTeamLosses, 10) || 0),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["team", teamId] });
+      queryClient.invalidateQueries({ queryKey: ["teams"] });
+      setEditTeamOpen(false);
+    },
+  });
+
+  const createEventMutation = useMutation({
+    mutationFn: createTeamEvent,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["teamEvents"] });
+    },
+  });
+
+  const deleteEventMutation = useMutation({
+    mutationFn: deleteTeamEvent,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["teamEvents"] });
+    },
+  });
+
   if (isPending || (!team && !error)) {
     return (
       <div className="min-h-screen bg-pb-dark flex items-center justify-center">
@@ -159,6 +289,21 @@ export default function TeamDetailPage() {
         {canEditTeams && (
           <button
             type="button"
+            onClick={() => {
+              setEditTeamName(team.name);
+              setEditTeamWins(String(team.record.wins));
+              setEditTeamLosses(String(team.record.losses));
+              setEditTeamOpen(true);
+            }}
+            className="flex items-center justify-center size-11 shrink-0 rounded-full bg-pb-card text-white active:bg-pb-card-hover transition-colors"
+            aria-label="Edit team"
+          >
+            <Edit className="size-5" />
+          </button>
+        )}
+        {canEditTeams && (
+          <button
+            type="button"
             onClick={() => setDeleteTeamConfirmOpen(true)}
             className="flex items-center justify-center size-11 shrink-0 rounded-full bg-pb-card text-red-400 active:bg-pb-card-hover hover:bg-red-500/10 transition-colors"
             aria-label="Delete team"
@@ -182,7 +327,7 @@ export default function TeamDetailPage() {
         </div>
       </div>
 
-      {/* Roster / Stats section with tabs */}
+      {/* Roster / Stats / Events section with tabs */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-1 rounded-xl bg-pb-surface p-1">
@@ -243,9 +388,11 @@ export default function TeamDetailPage() {
         {sectionTab === "roster" && (
           <div className="flex flex-col gap-2">
             {team.players.map((player) => (
-              <div
+              <button
                 key={player.id}
-                className="flex items-center justify-between bg-pb-card rounded-[14px] px-4 py-3"
+                type="button"
+                onClick={() => setEditingPlayer(player)}
+                className="w-full flex items-center justify-between bg-pb-card rounded-[14px] px-4 py-3 text-left active:bg-pb-card-hover transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <div className="flex items-center justify-center size-10 rounded-full bg-pb-active">
@@ -258,17 +405,8 @@ export default function TeamDetailPage() {
                     <p className="text-pb-muted text-sm">{player.position}</p>
                   </div>
                 </div>
-                {canEditTeams && (
-                  <button
-                    type="button"
-                    onClick={() => setEditingPlayer(player)}
-                    className="flex items-center justify-center size-11 rounded-full active:bg-pb-card-hover transition-colors"
-                    aria-label={`Edit ${player.name}`}
-                  >
-                    <Edit className="size-4 text-pb-muted" />
-                  </button>
-                )}
-              </div>
+                <ChevronRight className="size-4 text-pb-muted" />
+              </button>
             ))}
           </div>
         )}
@@ -315,7 +453,7 @@ export default function TeamDetailPage() {
                       )}
                     </div>
                     <p className="text-pb-muted text-sm">
-                      {evt.date}{evt.time ? ` · ${evt.time}` : ""}
+                      {formatTeamEventDateTime(evt.date, evt.time)}
                     </p>
                     {evt.location ? (
                       <p className="text-pb-muted text-xs mt-0.5">📍 {evt.location}</p>
@@ -394,7 +532,8 @@ export default function TeamDetailPage() {
                       return (
                         <tr
                           key={player.id}
-                          className="border-b border-pb-border/50 text-white"
+                          onClick={() => canEditTeams && openEditStats(player)}
+                          className={`border-b border-pb-border/50 text-white${canEditTeams ? " cursor-pointer transition-colors hover:bg-pb-surface/40" : ""}`}
                         >
                           <td className="sticky left-0 bg-pb-card px-3 py-2 font-medium whitespace-nowrap">
                             #{player.number} {player.name}
@@ -434,6 +573,121 @@ export default function TeamDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Edit Player Stats Dialog */}
+      <Dialog open={!!editStatsPlayer} onOpenChange={(open) => !open && closeEditStats()}>
+        <DialogContent className="max-h-[90dvh] max-w-lg border-pb-border bg-pb-dark text-white overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-white">
+              {editStatsPlayer && `#${editStatsPlayer.number} ${editStatsPlayer.name}`}
+            </DialogTitle>
+            <p className="text-sm text-pb-muted">
+              Select a game to edit stats for this player.
+            </p>
+          </DialogHeader>
+
+          {editStatsLoading ? (
+            <p className="py-6 text-center text-sm text-pb-muted">Loading games…</p>
+          ) : editStatsGameLines.length === 0 ? (
+            <p className="py-6 text-center text-sm text-pb-muted">
+              No game stats found for this player.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              <div className="max-h-40 space-y-1 overflow-y-auto">
+                {editStatsGameLines.map((line) => {
+                  const isSelected = editStatsSelectedGame?.gameId === line.gameId;
+                  return (
+                    <button
+                      key={line.gameId}
+                      type="button"
+                      onClick={() => selectGameLine(line)}
+                      className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                        isSelected
+                          ? "bg-pb-orange text-white"
+                          : "bg-pb-surface text-white hover:bg-pb-card-hover"
+                      }`}
+                    >
+                      <span className="font-medium">vs {line.opponent}</span>
+                      {line.gameDate && (
+                        <span className="ml-2 text-xs text-pb-muted">{line.gameDate}</span>
+                      )}
+                      <span className="ml-2 text-xs text-pb-muted">
+                        {line.stats.points} PTS
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {editStatsForm && (
+                <div className="rounded-lg border border-pb-border bg-pb-surface p-3">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+                    {(
+                      [
+                        ["points", "PTS"],
+                        ["fgMade", "FG Made"],
+                        ["fgAttempts", "FG Att"],
+                        ["threeMade", "3PT Made"],
+                        ["threeAttempts", "3PT Att"],
+                        ["ftMade", "FT Made"],
+                        ["ftAttempts", "FT Att"],
+                        ["offensiveRebounds", "OREB"],
+                        ["defensiveRebounds", "DREB"],
+                        ["rebounds", "REB"],
+                        ["assists", "AST"],
+                        ["steals", "STL"],
+                        ["blocks", "BLK"],
+                        ["turnovers", "TO"],
+                        ["fouls", "PF"],
+                        ["minutes", "MIN"],
+                      ] as [keyof PlayerGameStats, string][]
+                    ).map(([key, label]) => (
+                      <div key={key}>
+                        <label className="mb-0.5 block text-[10px] font-medium text-pb-muted">
+                          {label}
+                        </label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={editStatsForm[key]}
+                          disabled={key === "rebounds"}
+                          onChange={(e) => {
+                            const v = parseInt(
+                              e.target.value.replace(/\D/g, "") || "0",
+                              10
+                            );
+                            updateEditField(key, v);
+                          }}
+                          className="h-8 border-pb-border bg-pb-card text-sm text-white disabled:opacity-50"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={closeEditStats}
+              disabled={editStatsSaving}
+              className="border-pb-border text-white hover:bg-pb-card"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleEditStatsSave}
+              disabled={!editStatsForm || editStatsSaving}
+              className="bg-pb-orange text-white hover:bg-pb-orange/90"
+            >
+              {editStatsSaving ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Event Dialog */}
       <Dialog open={addEventOpen} onOpenChange={setAddEventOpen}>
@@ -500,32 +754,36 @@ export default function TeamDetailPage() {
               Cancel
             </Button>
             <Button
-              disabled={!newEventTitle.trim() || !newEventDate}
+              disabled={!newEventTitle.trim() || !newEventDate || createEventMutation.isPending}
               onClick={() => {
-                addEvent({
-                  id: crypto.randomUUID(),
-                  teamId,
-                  teamName: team?.name ?? "",
-                  title: newEventTitle.trim(),
-                  date: newEventDate,
-                  time: newEventTime,
-                  type: newEventType,
-                  location: newEventLocation.trim(),
-                  opponent: newEventOpponent.trim(),
-                  notes: newEventNotes.trim(),
-                });
-                setAddEventOpen(false);
-                setNewEventTitle("");
-                setNewEventDate("");
-                setNewEventTime("");
-                setNewEventType("practice");
-                setNewEventNotes("");
-                setNewEventLocation("");
-                setNewEventOpponent("");
+                createEventMutation.mutate(
+                  {
+                    teamId,
+                    title: newEventTitle.trim(),
+                    date: newEventDate,
+                    time: newEventTime,
+                    type: newEventType,
+                    location: newEventLocation.trim(),
+                    opponent: newEventOpponent.trim(),
+                    notes: newEventNotes.trim(),
+                  },
+                  {
+                    onSuccess: () => {
+                      setAddEventOpen(false);
+                      setNewEventTitle("");
+                      setNewEventDate("");
+                      setNewEventTime("");
+                      setNewEventType("practice");
+                      setNewEventNotes("");
+                      setNewEventLocation("");
+                      setNewEventOpponent("");
+                    },
+                  }
+                );
               }}
               className="bg-pb-orange text-white hover:bg-pb-orange/90"
             >
-              Add Event
+              {createEventMutation.isPending ? "Adding…" : "Add Event"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -580,54 +838,77 @@ export default function TeamDetailPage() {
       {/* Edit Player Dialog */}
       <Dialog
         open={!!editingPlayer}
-        onOpenChange={(open) => !open && setEditingPlayer(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingPlayer(null);
+            setIsEditingPlayer(false);
+            setDeletePlayerConfirmOpen(false);
+          }
+        }}
       >
         <DialogContent className="border-pb-border bg-pb-dark text-white">
           <DialogHeader>
-            <DialogTitle className="text-white">Edit Player</DialogTitle>
+            <DialogTitle className="text-white">
+              {isEditingPlayer ? "Edit Player" : "Player Details"}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <Input
-              placeholder="Name"
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              className="bg-pb-card border-pb-border text-white"
-            />
-            <Input
-              placeholder="Number"
-              type="number"
-              min={0}
-              max={99}
-              value={editNumber}
-              onChange={(e) => setEditNumber(e.target.value)}
-              className="bg-pb-card border-pb-border text-white"
-            />
-            <Input
-              placeholder="Position"
-              value={editPosition}
-              onChange={(e) => setEditPosition(e.target.value)}
-              className="bg-pb-card border-pb-border text-white"
-            />
+            <div>
+              <label className="text-xs text-pb-muted mb-1 block">Name</label>
+              <Input
+                placeholder="Name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                readOnly={!isEditingPlayer}
+                className={`bg-pb-card border-pb-border text-white ${!isEditingPlayer ? "opacity-80 cursor-default" : ""}`}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-pb-muted mb-1 block">Number</label>
+              <Input
+                placeholder="Number"
+                type="number"
+                min={0}
+                max={99}
+                value={editNumber}
+                onChange={(e) => setEditNumber(e.target.value)}
+                readOnly={!isEditingPlayer}
+                className={`bg-pb-card border-pb-border text-white ${!isEditingPlayer ? "opacity-80 cursor-default" : ""}`}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-pb-muted mb-1 block">Position</label>
+              <Input
+                placeholder="Position"
+                value={editPosition}
+                onChange={(e) => setEditPosition(e.target.value)}
+                readOnly={!isEditingPlayer}
+                className={`bg-pb-card border-pb-border text-white ${!isEditingPlayer ? "opacity-80 cursor-default" : ""}`}
+              />
+            </div>
           </div>
-          <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
-            <Button
-              variant="outline"
-              onClick={() => deletePlayerMutation.mutate()}
-              disabled={deletePlayerMutation.isPending}
-              className="border-red-500/50 text-red-400 hover:bg-red-500/10 hover:text-red-400 order-2 sm:order-1"
-            >
-              {deletePlayerMutation.isPending ? "Deleting…" : "Delete Player"}
-            </Button>
-            <div className="flex gap-2 order-1 sm:order-2">
+          {isEditingPlayer ? (
+            <DialogFooter className="flex gap-2 sm:justify-end">
               <Button
                 variant="outline"
-                onClick={() => setEditingPlayer(null)}
+                onClick={() => {
+                  if (editingPlayer) {
+                    setEditName(editingPlayer.name);
+                    setEditNumber(String(editingPlayer.number));
+                    setEditPosition(editingPlayer.position);
+                  }
+                  setIsEditingPlayer(false);
+                }}
                 className="border-pb-border text-white"
               >
                 Cancel
               </Button>
               <Button
-                onClick={() => updatePlayerMutation.mutate()}
+                onClick={() => {
+                  updatePlayerMutation.mutate(undefined, {
+                    onSuccess: () => setIsEditingPlayer(false),
+                  });
+                }}
                 disabled={
                   updatePlayerMutation.isPending ||
                   editNumber === "" ||
@@ -639,13 +920,88 @@ export default function TeamDetailPage() {
               >
                 {updatePlayerMutation.isPending ? "Saving…" : "Save"}
               </Button>
-            </div>
+            </DialogFooter>
+          ) : (
+            <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
+              {canEditTeams && (
+                <Button
+                  variant="outline"
+                  onClick={() => setDeletePlayerConfirmOpen(true)}
+                  className="border-red-500/50 text-red-400 hover:bg-red-500/10 hover:text-red-400 order-3 sm:order-1"
+                >
+                  Delete Player
+                </Button>
+              )}
+              <div className="flex gap-2 order-1 sm:order-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setEditingPlayer(null);
+                    setIsEditingPlayer(false);
+                  }}
+                  className="border-pb-border text-white"
+                >
+                  Close
+                </Button>
+                {canEditTeams && (
+                  <Button
+                    onClick={() => setIsEditingPlayer(true)}
+                    className="bg-pb-orange text-white hover:bg-pb-orange/90"
+                  >
+                    <Edit className="size-4 mr-1.5" />
+                    Edit
+                  </Button>
+                )}
+              </div>
+            </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Player Confirmation */}
+      <Dialog
+        open={deletePlayerConfirmOpen}
+        onOpenChange={(open) =>
+          !deletePlayerMutation.isPending && setDeletePlayerConfirmOpen(open)
+        }
+      >
+        <DialogContent className="border-pb-border bg-pb-dark text-white">
+          <DialogHeader>
+            <DialogTitle className="text-white">Delete player?</DialogTitle>
+            <p className="text-sm text-pb-muted">
+              Are you sure you want to remove {editingPlayer?.name ?? "this player"} from the team?
+              This cannot be undone.
+            </p>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setDeletePlayerConfirmOpen(false)}
+              disabled={deletePlayerMutation.isPending}
+              className="border-pb-border text-white"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                deletePlayerMutation.mutate(undefined, {
+                  onSuccess: () => {
+                    setDeletePlayerConfirmOpen(false);
+                    setEditingPlayer(null);
+                  },
+                });
+              }}
+              disabled={deletePlayerMutation.isPending || !editingPlayer}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              {deletePlayerMutation.isPending ? "Deleting…" : "Delete player"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <EventDetailSheet
-        event={selectedEvent ? allEvents.find((e) => e.id === selectedEvent.id) ?? selectedEvent : null}
+        event={selectedEvent}
         open={eventDetailOpen}
         onOpenChange={(open) => {
           setEventDetailOpen(open);
@@ -674,14 +1030,20 @@ export default function TeamDetailPage() {
               Cancel
             </Button>
             <Button
+              disabled={deleteEventMutation.isPending}
               onClick={() => {
-                if (eventToDelete) removeEvent(eventToDelete);
-                setDeleteEventConfirmOpen(false);
-                setEventToDelete(null);
+                if (eventToDelete) {
+                  deleteEventMutation.mutate(eventToDelete, {
+                    onSuccess: () => {
+                      setDeleteEventConfirmOpen(false);
+                      setEventToDelete(null);
+                    },
+                  });
+                }
               }}
               className="bg-red-600 text-white hover:bg-red-700"
             >
-              Delete event
+              {deleteEventMutation.isPending ? "Deleting…" : "Delete event"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -715,6 +1077,68 @@ export default function TeamDetailPage() {
               className="bg-red-600 text-white hover:bg-red-700"
             >
               {deleteTeamMutation.isPending ? "Deleting…" : "Delete team"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Team Dialog */}
+      <Dialog
+        open={editTeamOpen}
+        onOpenChange={(open) => !updateTeamMutation.isPending && setEditTeamOpen(open)}
+      >
+        <DialogContent className="border-pb-border bg-pb-dark text-white">
+          <DialogHeader>
+            <DialogTitle className="text-white">Edit Team</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-pb-muted mb-1 block">Team Name</label>
+              <Input
+                value={editTeamName}
+                onChange={(e) => setEditTeamName(e.target.value)}
+                placeholder="Team name"
+                className="bg-pb-card border-pb-border text-white"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs text-pb-muted mb-1 block">Wins</label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={editTeamWins}
+                  onChange={(e) => setEditTeamWins(e.target.value)}
+                  className="bg-pb-card border-pb-border text-white"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-pb-muted mb-1 block">Losses</label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={editTeamLosses}
+                  onChange={(e) => setEditTeamLosses(e.target.value)}
+                  className="bg-pb-card border-pb-border text-white"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setEditTeamOpen(false)}
+              disabled={updateTeamMutation.isPending}
+              className="border-pb-border text-white"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => updateTeamMutation.mutate()}
+              disabled={updateTeamMutation.isPending || !editTeamName.trim()}
+              className="bg-pb-orange text-white hover:bg-pb-orange/90"
+            >
+              {updateTeamMutation.isPending ? "Saving…" : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>

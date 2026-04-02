@@ -12,8 +12,16 @@ import {
 } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useEventsStore, type TeamEvent, type TeamEventType } from "@/store/eventsStore";
-import { usePermissions } from "@/hooks/usePermissions";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { updateTeamEvent, deleteTeamEvent } from "@/lib/supabase-queries";
+import type { TeamEvent, TeamEventType } from "@/lib/supabase-queries";
 
 const typeColors: Record<string, string> = {
   practice: "bg-pb-blue/20 text-pb-blue",
@@ -47,8 +55,7 @@ interface EventDetailSheetProps {
 }
 
 export function EventDetailSheet({ event, open, onOpenChange }: EventDetailSheetProps) {
-  const { canEditEvents } = usePermissions();
-  const updateEvent = useEventsStore((s) => s.updateEvent);
+  const queryClient = useQueryClient();
   const router = useRouter();
   const [editing, setEditing] = useState(false);
 
@@ -59,6 +66,25 @@ export function EventDetailSheet({ event, open, onOpenChange }: EventDetailSheet
   const [editLocation, setEditLocation] = useState("");
   const [editOpponent, setEditOpponent] = useState("");
   const [editNotes, setEditNotes] = useState("");
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: Parameters<typeof updateTeamEvent>[1] }) =>
+      updateTeamEvent(id, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["teamEvents"] });
+      setEditing(false);
+      onOpenChange(false);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteTeamEvent,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["teamEvents"] });
+      onOpenChange(false);
+    },
+  });
 
   function startEditing() {
     if (!event) return;
@@ -74,16 +100,18 @@ export function EventDetailSheet({ event, open, onOpenChange }: EventDetailSheet
 
   function handleSave() {
     if (!event) return;
-    updateEvent(event.id, {
-      title: editTitle.trim() || event.title,
-      date: editDate || event.date,
-      time: editTime,
-      type: editType,
-      location: editLocation.trim(),
-      opponent: editOpponent.trim(),
-      notes: editNotes.trim(),
+    updateMutation.mutate({
+      id: event.id,
+      updates: {
+        title: editTitle.trim() || event.title,
+        date: editDate || event.date,
+        time: editTime,
+        type: editType,
+        location: editLocation.trim(),
+        opponent: editOpponent.trim(),
+        notes: editNotes.trim(),
+      },
     });
-    setEditing(false);
   }
 
   function handleCancel() {
@@ -100,17 +128,43 @@ export function EventDetailSheet({ event, open, onOpenChange }: EventDetailSheet
   if (!event) return null;
 
   return (
-    <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent
-        side="bottom"
-        showCloseButton={false}
-        className="bg-pb-dark border-pb-border rounded-t-2xl max-h-[90vh] flex flex-col p-0"
-      >
+    <>
+      <Sheet open={open} onOpenChange={handleOpenChange}>
+        <SheetContent
+          side="bottom"
+          showCloseButton={false}
+          className="bg-pb-dark border-pb-border rounded-t-2xl h-[100dvh] max-h-[100dvh] flex flex-col p-0"
+        >
         <SheetHeader className="px-5 pt-5 pb-0 shrink-0">
-          <div className="flex items-center justify-between gap-2">
-            <SheetTitle className="text-white text-lg font-bold truncate">
-              {editing ? "Edit Event" : event.title}
-            </SheetTitle>
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <SheetTitle className="text-white text-lg font-bold truncate">
+                {editing ? "Edit Event" : event.title}
+              </SheetTitle>
+              {!editing && (
+                <div className="mt-2 flex items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={startEditing}
+                    className="bg-pb-orange text-white hover:bg-pb-orange/90"
+                  >
+                    <Edit className="size-3.5 mr-1.5" />
+                    Edit
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={deleteMutation.isPending}
+                    onClick={() => setDeleteConfirmOpen(true)}
+                    className="border-red-500/50 text-red-400 hover:bg-red-500/10 hover:text-red-400"
+                  >
+                    {deleteMutation.isPending ? "Deleting..." : "Delete"}
+                  </Button>
+                </div>
+              )}
+            </div>
             <button
               type="button"
               onClick={() => handleOpenChange(false)}
@@ -126,7 +180,7 @@ export function EventDetailSheet({ event, open, onOpenChange }: EventDetailSheet
 
         {editing ? (
           <>
-            <div className="px-5 pt-4 space-y-3 overflow-y-auto flex-1 min-h-0">
+            <div className="px-5 pt-4 pb-28 space-y-3 overflow-y-auto flex-1 min-h-0">
               <div>
                 <label className="text-pb-muted text-xs font-medium mb-1 block">Title</label>
                 <Input
@@ -196,7 +250,7 @@ export function EventDetailSheet({ event, open, onOpenChange }: EventDetailSheet
                 />
               </div>
             </div>
-            <div className="flex gap-2 px-5 py-4 shrink-0 border-t border-pb-border">
+            <div className="sticky bottom-0 z-10 flex gap-2 px-5 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shrink-0 border-t border-pb-border bg-pb-dark">
               <Button
                 variant="outline"
                 onClick={handleCancel}
@@ -206,16 +260,16 @@ export function EventDetailSheet({ event, open, onOpenChange }: EventDetailSheet
               </Button>
               <Button
                 onClick={handleSave}
-                disabled={!editTitle.trim() || !editDate}
+                disabled={!editTitle.trim() || !editDate || updateMutation.isPending}
                 className="flex-1 bg-pb-orange text-white hover:bg-pb-orange/90"
               >
-                Save
+                {updateMutation.isPending ? "Saving…" : "Save"}
               </Button>
             </div>
           </>
         ) : (
           <>
-            <div className="px-5 pt-3 pb-0 overflow-y-auto flex-1 min-h-0">
+            <div className="px-5 pt-3 pb-28 overflow-y-auto flex-1 min-h-0">
               <div className="space-y-3">
                 <div>
                   <p className="text-pb-muted text-xs font-medium mb-0.5">Title</p>
@@ -265,7 +319,7 @@ export function EventDetailSheet({ event, open, onOpenChange }: EventDetailSheet
               </div>
             </div>
 
-            <div className="flex gap-2 px-5 py-4 shrink-0 border-t border-pb-border">
+            <div className="sticky bottom-0 z-10 flex gap-2 px-5 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shrink-0 border-t border-pb-border bg-pb-dark">
               {event.type === "game" && (
                 <Button
                   onClick={() => {
@@ -273,25 +327,50 @@ export function EventDetailSheet({ event, open, onOpenChange }: EventDetailSheet
                     onOpenChange(false);
                     router.push(`/game-center${params}`);
                   }}
-                  className={`${canEditEvents ? "flex-1" : "w-full"} bg-pb-blue text-white hover:bg-pb-blue/90`}
+                  className="w-full bg-pb-blue text-white hover:bg-pb-blue/90"
                 >
                   <Trophy className="size-4 mr-2" />
                   Score
                 </Button>
               )}
-              {canEditEvents && (
-                <Button
-                  onClick={startEditing}
-                  className={`${event.type === "game" ? "flex-1" : "w-full"} bg-pb-orange text-white hover:bg-pb-orange/90`}
-                >
-                  <Edit className="size-4 mr-2" />
-                  Edit Event
-                </Button>
-              )}
             </div>
           </>
         )}
-      </SheetContent>
-    </Sheet>
+        </SheetContent>
+      </Sheet>
+
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="border-pb-border bg-pb-dark text-white">
+          <DialogHeader>
+            <DialogTitle className="text-white">Delete event?</DialogTitle>
+            <p className="text-sm text-pb-muted">
+              Are you sure you want to delete this event? This cannot be undone.
+            </p>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteConfirmOpen(false)}
+              className="border-pb-border text-white"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={deleteMutation.isPending}
+              onClick={() =>
+                deleteMutation.mutate(event.id, {
+                  onSuccess: () => setDeleteConfirmOpen(false),
+                })
+              }
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

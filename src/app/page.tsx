@@ -14,10 +14,16 @@ import {
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchTeams, createTeam } from "@/lib/supabase-queries";
+import {
+  fetchTeams,
+  createTeam,
+  fetchTeamEvents,
+  createTeamEvent,
+  deleteTeamEvent,
+} from "@/lib/supabase-queries";
+import type { TeamEvent, TeamEventType } from "@/lib/supabase-queries";
 import { PageTransition } from "@/components/layout/PageTransition";
 import { AddTeamModal, type CreatedTeamData } from "@/components/AddTeamModal";
-import { useEventsStore, type TeamEvent, type TeamEventType } from "@/store/eventsStore";
 import { EventDetailSheet } from "@/components/events/EventDetailSheet";
 import {
   Dialog,
@@ -44,7 +50,7 @@ function formatTime(timeStr: string): string {
   return `${displayHours}:${minutes.toString().padStart(2, "0")} ${period}`;
 }
 
-function sortedUpcoming(events: ReturnType<typeof useEventsStore.getState>["events"]) {
+function sortedUpcoming(events: TeamEvent[]) {
   const today = new Date().toISOString().slice(0, 10);
   return [...events]
     .sort((a, b) => {
@@ -70,11 +76,7 @@ export default function HomePage() {
   const [newEventNotes, setNewEventNotes] = useState("");
   const [newEventTeamId, setNewEventTeamId] = useState("");
   const queryClient = useQueryClient();
-  const allEvents = useEventsStore((s) => s.events);
-  const addEvent = useEventsStore((s) => s.addEvent);
-  const removeEvent = useEventsStore((s) => s.removeEvent);
   const { canEditEvents } = usePermissions();
-  const upcomingEvents = sortedUpcoming(allEvents);
 
   const { data: teams = [] } = useQuery({
     queryKey: ["teams"],
@@ -82,6 +84,15 @@ export default function HomePage() {
     staleTime: 0,
     refetchOnMount: true,
   });
+
+  const { data: allEvents = [] } = useQuery({
+    queryKey: ["teamEvents"],
+    queryFn: fetchTeamEvents,
+    staleTime: 0,
+    refetchOnMount: true,
+  });
+
+  const upcomingEvents = sortedUpcoming(allEvents);
 
   const createTeamMutation = useMutation({
     mutationFn: (data: CreatedTeamData) => {
@@ -100,6 +111,20 @@ export default function HomePage() {
     },
     onError: (error) => {
       console.error("Failed to create team:", error);
+    },
+  });
+
+  const createEventMutation = useMutation({
+    mutationFn: createTeamEvent,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["teamEvents"] });
+    },
+  });
+
+  const deleteEventMutation = useMutation({
+    mutationFn: deleteTeamEvent,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["teamEvents"] });
     },
   });
 
@@ -333,34 +358,37 @@ export default function HomePage() {
             Cancel
           </Button>
           <Button
-            disabled={!newEventTitle.trim() || !newEventDate || !newEventTeamId}
+            disabled={!newEventTitle.trim() || !newEventDate || !newEventTeamId || createEventMutation.isPending}
             onClick={() => {
-              const selectedTeam = teams.find((t) => t.id === newEventTeamId);
-              addEvent({
-                id: crypto.randomUUID(),
-                teamId: newEventTeamId,
-                teamName: selectedTeam?.name ?? "",
-                title: newEventTitle.trim(),
-                date: newEventDate,
-                time: newEventTime,
-                type: newEventType,
-                location: newEventLocation.trim(),
-                opponent: newEventOpponent.trim(),
-                notes: newEventNotes.trim(),
-              });
-              setAddEventOpen(false);
-              setNewEventTitle("");
-              setNewEventDate("");
-              setNewEventTime("");
-              setNewEventType("practice");
-              setNewEventLocation("");
-              setNewEventOpponent("");
-              setNewEventNotes("");
-              setNewEventTeamId("");
+              createEventMutation.mutate(
+                {
+                  teamId: newEventTeamId,
+                  title: newEventTitle.trim(),
+                  date: newEventDate,
+                  time: newEventTime,
+                  type: newEventType,
+                  location: newEventLocation.trim(),
+                  opponent: newEventOpponent.trim(),
+                  notes: newEventNotes.trim(),
+                },
+                {
+                  onSuccess: () => {
+                    setAddEventOpen(false);
+                    setNewEventTitle("");
+                    setNewEventDate("");
+                    setNewEventTime("");
+                    setNewEventType("practice");
+                    setNewEventLocation("");
+                    setNewEventOpponent("");
+                    setNewEventNotes("");
+                    setNewEventTeamId("");
+                  },
+                }
+              );
             }}
             className="bg-pb-orange text-white hover:bg-pb-orange/90"
           >
-            Add Event
+            {createEventMutation.isPending ? "Adding…" : "Add Event"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -385,14 +413,20 @@ export default function HomePage() {
             Cancel
           </Button>
           <Button
+            disabled={deleteEventMutation.isPending}
             onClick={() => {
-              if (eventToDelete) removeEvent(eventToDelete);
-              setDeleteEventConfirmOpen(false);
-              setEventToDelete(null);
+              if (eventToDelete) {
+                deleteEventMutation.mutate(eventToDelete, {
+                  onSuccess: () => {
+                    setDeleteEventConfirmOpen(false);
+                    setEventToDelete(null);
+                  },
+                });
+              }
             }}
             className="bg-red-600 text-white hover:bg-red-700"
           >
-            Delete event
+            {deleteEventMutation.isPending ? "Deleting…" : "Delete event"}
           </Button>
         </DialogFooter>
       </DialogContent>

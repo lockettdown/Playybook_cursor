@@ -26,9 +26,13 @@ CREATE TABLE IF NOT EXISTS team_messages (
   created_at   TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Disable RLS (same as other tables in this project)
-ALTER TABLE app_members   DISABLE ROW LEVEL SECURITY;
-ALTER TABLE team_messages DISABLE ROW LEVEL SECURITY;
+-- 3. Add user_id / owner_id columns (idempotent)
+ALTER TABLE app_members  ADD COLUMN IF NOT EXISTS owner_id UUID DEFAULT auth.uid() REFERENCES auth.users(id);
+ALTER TABLE team_messages ADD COLUMN IF NOT EXISTS user_id UUID DEFAULT auth.uid() REFERENCES auth.users(id);
 
--- 4. Enable realtime for live messaging
+-- 4. Enable RLS
+ALTER TABLE app_members   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE team_messages  ENABLE ROW LEVEL SECURITY;
+
+-- 5. Enable realtime for live messaging
 ALTER PUBLICATION supabase_realtime ADD TABLE team_messages;

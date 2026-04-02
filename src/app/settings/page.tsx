@@ -1,21 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Settings,
   User,
-  Mail,
-  Volume2,
-  Vibrate,
-  Info,
-  Shield,
   UserPlus,
   Trash2,
   Copy,
   Check,
   ChevronDown,
   LogOut,
-  LogIn,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -41,28 +36,6 @@ const ROLE_COLORS: Record<MemberRole, string> = {
   parent: "text-green-400 bg-green-500/10",
   player: "text-purple-400 bg-purple-500/10",
 };
-
-interface ToggleProps {
-  enabled: boolean;
-  onToggle: () => void;
-}
-
-function Toggle({ enabled, onToggle }: ToggleProps) {
-  return (
-    <button
-      onClick={onToggle}
-      className={`relative w-12 h-7 rounded-full transition-colors ${
-        enabled ? "bg-pb-orange" : "bg-pb-surface"
-      }`}
-    >
-      <span
-        className={`absolute top-0.5 left-0.5 size-6 rounded-full bg-white transition-transform ${
-          enabled ? "translate-x-5" : "translate-x-0"
-        }`}
-      />
-    </button>
-  );
-}
 
 function MemberRow({
   m,
@@ -138,9 +111,7 @@ function MemberRow({
 }
 
 export default function SettingsPage() {
-  const [soundEffects, setSoundEffects] = useState(true);
-  const [hapticFeedback, setHapticFeedback] = useState(true);
-
+  const router = useRouter();
   const { member, signOut } = useAuth();
   const { isOwner, canManageMembers } = usePermissions();
 
@@ -149,12 +120,7 @@ export default function SettingsPage() {
   const [inviteRole, setInviteRole] = useState<"coach" | "parent" | "player">("coach");
   const [inviteError, setInviteError] = useState("");
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
-
-  const [signInEmail, setSignInEmail] = useState("");
-  const [signInPassword, setSignInPassword] = useState("");
-  const [signInError, setSignInError] = useState("");
-  const [signInLoading, setSignInLoading] = useState(false);
-  const { signIn } = useAuth();
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -195,21 +161,18 @@ export default function SettingsPage() {
     inviteMutation.mutate();
   }
 
-  async function handleSignIn(e: React.FormEvent) {
-    e.preventDefault();
-    setSignInLoading(true);
-    setSignInError("");
-    const err = await signIn(signInEmail, signInPassword);
-    setSignInLoading(false);
-    if (err) setSignInError(err);
-  }
-
   function copyInviteLink(token: string) {
     const url = `${window.location.origin}/join?token=${token}`;
     navigator.clipboard.writeText(url).then(() => {
       setCopiedToken(token);
       setTimeout(() => setCopiedToken(null), 2000);
     });
+  }
+
+  async function handleSignOut() {
+    setIsSigningOut(true);
+    await signOut();
+    router.push("/login");
   }
 
   return (
@@ -222,74 +185,6 @@ export default function SettingsPage() {
       </div>
 
       <div className="flex flex-col gap-6">
-
-        {/* Profile */}
-        <section>
-          <h2 className="text-sm font-semibold text-pb-muted uppercase tracking-wider mb-2 px-1">
-            Profile
-          </h2>
-          <div className="bg-pb-card rounded-[14px] overflow-hidden">
-            {member ? (
-              <>
-                <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5">
-                  <User className="size-5 text-pb-blue shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white font-medium truncate">{member.displayName || "—"}</p>
-                    <p className="text-pb-muted text-xs">Display name</p>
-                  </div>
-                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${ROLE_COLORS[member.role]}`}>
-                    {ROLE_LABELS[member.role]}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5">
-                  <Mail className="size-5 text-pb-blue shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white font-medium truncate">{member.email}</p>
-                    <p className="text-pb-muted text-xs">Email</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => signOut()}
-                  className="flex items-center gap-3 px-4 py-3 w-full text-left hover:bg-pb-card-hover active:bg-pb-card-hover transition-colors"
-                >
-                  <LogOut className="size-5 text-red-400 shrink-0" />
-                  <span className="text-red-400 font-medium">Sign out</span>
-                </button>
-              </>
-            ) : (
-              <div className="px-4 py-4">
-                <p className="text-pb-muted text-sm mb-3 flex items-center gap-2">
-                  <LogIn className="size-4" /> Sign in to manage your profile and team
-                </p>
-                <form onSubmit={handleSignIn} className="flex flex-col gap-2">
-                  <input
-                    type="email"
-                    placeholder="Email"
-                    value={signInEmail}
-                    onChange={(e) => setSignInEmail(e.target.value)}
-                    className="bg-pb-surface text-white text-sm rounded-xl px-3 py-2.5 border border-white/10 focus:outline-none focus:border-pb-blue placeholder:text-pb-muted"
-                  />
-                  <input
-                    type="password"
-                    placeholder="Password"
-                    value={signInPassword}
-                    onChange={(e) => setSignInPassword(e.target.value)}
-                    className="bg-pb-surface text-white text-sm rounded-xl px-3 py-2.5 border border-white/10 focus:outline-none focus:border-pb-blue placeholder:text-pb-muted"
-                  />
-                  {signInError && <p className="text-red-400 text-xs">{signInError}</p>}
-                  <button
-                    type="submit"
-                    disabled={signInLoading}
-                    className="bg-pb-blue text-white text-sm font-semibold rounded-xl py-2.5 disabled:opacity-50 hover:bg-pb-blue/80 transition-colors"
-                  >
-                    {signInLoading ? "Signing in…" : "Sign in"}
-                  </button>
-                </form>
-              </div>
-            )}
-          </div>
-        </section>
 
         {/* Team Members */}
         <section>
@@ -408,103 +303,18 @@ export default function SettingsPage() {
           )}
         </section>
 
-        {/* Permissions */}
-        <section>
-          <h2 className="text-sm font-semibold text-pb-muted uppercase tracking-wider mb-2 px-1">
-            Permissions
-          </h2>
-          <div className="bg-pb-card rounded-[14px] overflow-hidden">
-            {(
-              [
-                {
-                  role: "owner" as MemberRole,
-                  desc: "Full access — manage members, edit teams, events, and all content.",
-                },
-                {
-                  role: "coach" as MemberRole,
-                  desc: "Can add/edit/delete players, teams, and events.",
-                },
-                {
-                  role: "parent" as MemberRole,
-                  desc: "Read-only — can view schedule and send messages.",
-                },
-                {
-                  role: "player" as MemberRole,
-                  desc: "Read-only — can view schedule and send messages.",
-                },
-              ] as { role: MemberRole; desc: string }[]
-            ).map(({ role, desc }, i, arr) => (
-              <div
-                key={role}
-                className={`flex items-start gap-3 px-4 py-3 ${i < arr.length - 1 ? "border-b border-white/5" : ""}`}
-              >
-                <span className={`mt-0.5 text-xs font-semibold px-2.5 py-1 rounded-full shrink-0 ${ROLE_COLORS[role]}`}>
-                  {ROLE_LABELS[role]}
-                </span>
-                <p className="text-pb-muted text-sm">{desc}</p>
-              </div>
-            ))}
-          </div>
-        </section>
+      </div>
 
-        {/* Preferences */}
-        <section>
-          <h2 className="text-sm font-semibold text-pb-muted uppercase tracking-wider mb-2 px-1">
-            Preferences
-          </h2>
-          <div className="bg-pb-card rounded-[14px] overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
-              <div className="flex items-center gap-3">
-                <Shield className="size-5 text-pb-orange" />
-                <span className="text-white">Dark Mode</span>
-              </div>
-              <Toggle enabled={true} onToggle={() => {}} />
-            </div>
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
-              <div className="flex items-center gap-3">
-                <Volume2 className="size-5 text-pb-orange" />
-                <span className="text-white">Sound Effects</span>
-              </div>
-              <Toggle enabled={soundEffects} onToggle={() => setSoundEffects(!soundEffects)} />
-            </div>
-            <div className="flex items-center justify-between px-4 py-3">
-              <div className="flex items-center gap-3">
-                <Vibrate className="size-5 text-pb-orange" />
-                <span className="text-white">Haptic Feedback</span>
-              </div>
-              <Toggle enabled={hapticFeedback} onToggle={() => setHapticFeedback(!hapticFeedback)} />
-            </div>
-          </div>
-        </section>
-
-        {/* About */}
-        <section>
-          <h2 className="text-sm font-semibold text-pb-muted uppercase tracking-wider mb-2 px-1">
-            About
-          </h2>
-          <div className="bg-pb-card rounded-[14px] overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
-              <div className="flex items-center gap-3">
-                <Info className="size-5 text-pb-muted" />
-                <span className="text-white">Version</span>
-              </div>
-              <span className="text-pb-muted text-sm">1.0.0</span>
-            </div>
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
-              <div className="flex items-center gap-3">
-                <Shield className="size-5 text-pb-muted" />
-                <span className="text-white">Privacy Policy</span>
-              </div>
-            </div>
-            <div className="flex items-center justify-between px-4 py-3">
-              <div className="flex items-center gap-3">
-                <Info className="size-5 text-pb-muted" />
-                <span className="text-white">Terms of Service</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
+      <div className="mt-8 pb-2">
+        <button
+          type="button"
+          onClick={handleSignOut}
+          disabled={isSigningOut}
+          className="flex w-full items-center justify-center gap-2 rounded-[14px] border border-red-500/30 bg-red-500/10 px-4 py-3.5 text-sm font-semibold text-red-400 transition-colors hover:bg-red-500/15 active:bg-red-500/20"
+        >
+          <LogOut className="size-5 shrink-0" />
+          {isSigningOut ? "Logging out…" : "Log out"}
+        </button>
       </div>
     </div>
   );

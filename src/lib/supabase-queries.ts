@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import type {
   Team,
   Player,
@@ -8,12 +8,22 @@ import type {
   GameStatus,
 } from "@/types";
 
+async function requireUserId(): Promise<string> {
+  const supabase = getSupabaseBrowser();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+  return user.id;
+}
+
 // --- Teams ---
 
 export async function fetchTeams(): Promise<Team[]> {
+  const supabase = getSupabaseBrowser();
+  const userId = await requireUserId();
   const { data: teamsRows, error } = await supabase
     .from("teams")
     .select("id, name, wins, losses")
+    .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
@@ -53,6 +63,7 @@ export async function createTeam(
   name: string,
   players: { id?: string; name: string; number: number; position: string }[]
 ): Promise<Team> {
+  const supabase = getSupabaseBrowser();
   const { data: teamRow, error: teamError } = await supabase
     .from("teams")
     .insert({ name, wins: 0, losses: 0 })
@@ -92,6 +103,7 @@ export async function addPlayerToTeam(
   teamId: string,
   player: { name: string; number: number; position: string }
 ): Promise<Player> {
+  const supabase = getSupabaseBrowser();
   const id = crypto.randomUUID();
   const { error } = await supabase.from("players").insert({
     id,
@@ -113,6 +125,7 @@ export async function updatePlayer(
   playerId: string,
   data: { name: string; number: number; position: string }
 ): Promise<void> {
+  const supabase = getSupabaseBrowser();
   const { error } = await supabase
     .from("players")
     .update({
@@ -125,6 +138,7 @@ export async function updatePlayer(
 }
 
 export async function deletePlayer(playerId: string): Promise<void> {
+  const supabase = getSupabaseBrowser();
   const { error } = await supabase
     .from("players")
     .delete()
@@ -133,6 +147,7 @@ export async function deletePlayer(playerId: string): Promise<void> {
 }
 
 export async function deleteTeam(teamId: string): Promise<void> {
+  const supabase = getSupabaseBrowser();
   const { error: playersError } = await supabase
     .from("players")
     .delete()
@@ -150,6 +165,7 @@ export async function updateTeamRecord(
   wins: number,
   losses: number
 ): Promise<void> {
+  const supabase = getSupabaseBrowser();
   const { error } = await supabase
     .from("teams")
     .update({ wins, losses })
@@ -157,11 +173,30 @@ export async function updateTeamRecord(
   if (error) throw error;
 }
 
+export async function updateTeam(
+  teamId: string,
+  data: { name: string; wins: number; losses: number }
+): Promise<void> {
+  const supabase = getSupabaseBrowser();
+  const { error } = await supabase
+    .from("teams")
+    .update({
+      name: data.name,
+      wins: data.wins,
+      losses: data.losses,
+    })
+    .eq("id", teamId);
+  if (error) throw error;
+}
+
 export async function fetchTeam(id: string): Promise<Team | null> {
+  const supabase = getSupabaseBrowser();
+  const userId = await requireUserId();
   const { data: teamRow, error: teamError } = await supabase
     .from("teams")
     .select("id, name, wins, losses")
     .eq("id", id)
+    .eq("user_id", userId)
     .single();
 
   if (teamError || !teamRow) return null;
@@ -209,6 +244,7 @@ export async function fetchTeamPlayerStats(
 
   // Query stats directly by player ID — works regardless of whether games
   // have home_team_id set correctly.
+  const supabase = getSupabaseBrowser();
   const { data: statsRows, error } = await supabase
     .from("player_game_stats")
     .select("*")
@@ -290,9 +326,12 @@ export async function fetchTeamPlayerStats(
 // --- Games ---
 
 export async function fetchGames(): Promise<Game[]> {
+  const supabase = getSupabaseBrowser();
+  const userId = await requireUserId();
   const { data: rows, error } = await supabase
     .from("games")
     .select("*")
+    .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
@@ -312,6 +351,7 @@ export async function createGame(
   homeRoster: Player[],
   homeTeamId?: string | null
 ): Promise<Game> {
+  const supabase = getSupabaseBrowser();
   const today = new Date().toISOString().slice(0, 10);
   const { data: gameRow, error: gameError } = await supabase
     .from("games")
@@ -366,6 +406,7 @@ export async function saveGameState(
   quarter: number,
   status?: GameStatus
 ): Promise<void> {
+  const supabase = getSupabaseBrowser();
   const payload: Record<string, unknown> = {
     home_score: homeScore,
     away_score: awayScore,
@@ -380,6 +421,7 @@ export async function addGameEvent(
   gameId: string,
   event: Omit<GameEvent, "id">
 ): Promise<GameEvent> {
+  const supabase = getSupabaseBrowser();
   const { data, error } = await supabase
     .from("game_events")
     .insert({
@@ -412,6 +454,7 @@ export async function deleteGameEvent(
   gameId: string,
   eventId: string
 ): Promise<void> {
+  const supabase = getSupabaseBrowser();
   const { error } = await supabase
     .from("game_events")
     .delete()
@@ -469,37 +512,89 @@ export async function upsertPlayerGameStats(
   teamSide: "home" | "away",
   stats: PlayerGameStats
 ): Promise<void> {
-  const { error } = await supabase.from("player_game_stats").upsert(
-    {
-      game_id: gameId,
-      player_id: playerId,
-      team_side: teamSide,
-      points: stats.points,
-      fg_made: stats.fgMade,
-      fg_attempts: stats.fgAttempts,
-      three_made: stats.threeMade,
-      three_attempts: stats.threeAttempts,
-      ft_made: stats.ftMade,
-      ft_attempts: stats.ftAttempts,
-      rebounds: stats.rebounds,
-      assists: stats.assists,
-      steals: stats.steals,
-      blocks: stats.blocks,
-      turnovers: stats.turnovers,
-      fouls: stats.fouls,
-      minutes: stats.minutes,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "game_id,player_id" }
-  );
+  const supabase = getSupabaseBrowser();
+  const now = new Date().toISOString();
+  const basePayload = {
+    game_id: gameId,
+    player_id: playerId,
+    team_side: teamSide,
+    points: stats.points,
+    fg_made: stats.fgMade,
+    fg_attempts: stats.fgAttempts,
+    three_made: stats.threeMade,
+    three_attempts: stats.threeAttempts,
+    ft_made: stats.ftMade,
+    ft_attempts: stats.ftAttempts,
+    rebounds: stats.rebounds,
+    assists: stats.assists,
+    steals: stats.steals,
+    blocks: stats.blocks,
+    turnovers: stats.turnovers,
+    fouls: stats.fouls,
+    minutes: stats.minutes,
+    updated_at: now,
+  };
+
+  const payloadWithSplitRebounds = {
+    ...basePayload,
+    offensive_rebounds: stats.offensiveRebounds,
+    defensive_rebounds: stats.defensiveRebounds,
+  };
+
+  let { error } = await supabase
+    .from("player_game_stats")
+    .upsert(payloadWithSplitRebounds, { onConflict: "game_id,player_id" });
+
+  // Backward compatibility for older DB schemas that don't have split rebound columns.
+  if (error && /offensive_rebounds|defensive_rebounds/i.test(error.message ?? "")) {
+    const retry = await supabase
+      .from("player_game_stats")
+      .upsert(basePayload, { onConflict: "game_id,player_id" });
+    error = retry.error;
+  }
+
   if (error) throw error;
 }
 
+export type PlayerGameStatLine = {
+  gameId: string;
+  gameDate: string;
+  opponent: string;
+  stats: PlayerGameStats;
+};
+
+export async function fetchPlayerGameLines(
+  playerId: string
+): Promise<PlayerGameStatLine[]> {
+  const supabase = getSupabaseBrowser();
+  const { data, error } = await supabase
+    .from("player_game_stats")
+    .select("*, games!inner(id, date, home_team_name, away_team_name)")
+    .eq("player_id", playerId)
+    .eq("team_side", "home")
+    .order("created_at", { ascending: false });
+
+  if (error || !data) return [];
+
+  return data.map((row: Record<string, unknown>) => {
+    const game = row.games as Record<string, unknown>;
+    return {
+      gameId: row.game_id as string,
+      gameDate: (game.date as string) ?? "",
+      opponent: (game.away_team_name as string) ?? "Unknown",
+      stats: rowToPlayerGameStats(row),
+    };
+  });
+}
+
 export async function fetchGameWithDetails(gameId: string): Promise<Game | null> {
+  const supabase = getSupabaseBrowser();
+  const userId = await requireUserId();
   const { data: gameRow, error: gameError } = await supabase
     .from("games")
     .select("*")
     .eq("id", gameId)
+    .eq("user_id", userId)
     .single();
 
   if (gameError || !gameRow) return null;
@@ -570,11 +665,133 @@ export async function fetchGameWithDetails(gameId: string): Promise<Game | null>
   };
 }
 
+// --- Team Events ---
+
+export type TeamEventType = "practice" | "game" | "meeting" | "other";
+
+export interface TeamEvent {
+  id: string;
+  teamId: string;
+  teamName: string;
+  title: string;
+  date: string;
+  time: string;
+  type: TeamEventType;
+  location: string;
+  opponent: string;
+  notes: string;
+}
+
+function mapEventRow(row: Record<string, unknown>, teamName: string): TeamEvent {
+  return {
+    id: row.id as string,
+    teamId: row.team_id as string,
+    teamName,
+    title: row.title as string,
+    date: (row.date as string) ?? "",
+    time: (row.time as string) ?? "",
+    type: (row.type as TeamEventType) ?? "practice",
+    location: (row.location as string) ?? "",
+    opponent: (row.opponent as string) ?? "",
+    notes: (row.notes as string) ?? "",
+  };
+}
+
+export async function fetchTeamEvents(): Promise<TeamEvent[]> {
+  const supabase = getSupabaseBrowser();
+  const userId = await requireUserId();
+  const { data: rows, error } = await supabase
+    .from("team_events")
+    .select("*, teams(name)")
+    .eq("user_id", userId)
+    .order("date", { ascending: true });
+
+  if (error) throw error;
+  return (rows ?? []).map((row: Record<string, unknown>) => {
+    const teams = row.teams as { name: string } | null;
+    return mapEventRow(row, teams?.name ?? "");
+  });
+}
+
+export async function fetchTeamEventsByTeam(teamId: string): Promise<TeamEvent[]> {
+  const supabase = getSupabaseBrowser();
+  const userId = await requireUserId();
+  const { data: rows, error } = await supabase
+    .from("team_events")
+    .select("*, teams(name)")
+    .eq("team_id", teamId)
+    .eq("user_id", userId)
+    .order("date", { ascending: true });
+
+  if (error) throw error;
+  return (rows ?? []).map((row: Record<string, unknown>) => {
+    const teams = row.teams as { name: string } | null;
+    return mapEventRow(row, teams?.name ?? "");
+  });
+}
+
+export async function createTeamEvent(
+  event: Omit<TeamEvent, "id" | "teamName">
+): Promise<TeamEvent> {
+  const supabase = getSupabaseBrowser();
+  const { data, error } = await supabase
+    .from("team_events")
+    .insert({
+      team_id: event.teamId,
+      title: event.title,
+      date: event.date,
+      time: event.time,
+      type: event.type,
+      location: event.location,
+      opponent: event.opponent,
+      notes: event.notes,
+    })
+    .select("*, teams(name)")
+    .single();
+
+  if (error) throw error;
+  const teams = (data as Record<string, unknown>).teams as { name: string } | null;
+  return mapEventRow(data as Record<string, unknown>, teams?.name ?? "");
+}
+
+export async function updateTeamEvent(
+  id: string,
+  updates: Partial<Omit<TeamEvent, "id" | "teamId" | "teamName">>
+): Promise<void> {
+  const supabase = getSupabaseBrowser();
+  const payload: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (updates.title !== undefined) payload.title = updates.title;
+  if (updates.date !== undefined) payload.date = updates.date;
+  if (updates.time !== undefined) payload.time = updates.time;
+  if (updates.type !== undefined) payload.type = updates.type;
+  if (updates.location !== undefined) payload.location = updates.location;
+  if (updates.opponent !== undefined) payload.opponent = updates.opponent;
+  if (updates.notes !== undefined) payload.notes = updates.notes;
+
+  const { error } = await supabase
+    .from("team_events")
+    .update(payload)
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteTeamEvent(id: string): Promise<void> {
+  const supabase = getSupabaseBrowser();
+  const { error } = await supabase
+    .from("team_events")
+    .delete()
+    .eq("id", id);
+  if (error) throw error;
+}
+
+// --- Game Rosters ---
+
 export async function addPlayerToGameRoster(
   gameId: string,
   teamSide: "home" | "away",
   player: Player
 ): Promise<void> {
+  const supabase = getSupabaseBrowser();
   const { error } = await supabase.from("game_rosters").insert({
     game_id: gameId,
     player_id: player.id,

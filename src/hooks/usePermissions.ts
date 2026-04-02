@@ -11,14 +11,14 @@ export interface Permissions {
 }
 
 export function usePermissions(): Permissions {
-  const { member } = useAuth();
+  const { user, member } = useAuth();
   const role = member?.role ?? null;
   const isOwner = role === "owner";
   const isCoach = role === "coach";
 
-  // Only restrict editing for explicit parent/player roles.
-  // null (unauthenticated or no member record) defaults to full access.
-  const canEdit = role !== "parent" && role !== "player";
+  // After DB resets/migrations, users may not have an app_members row yet.
+  // Allow authenticated users to edit their own workspace until role rows exist.
+  const canEdit = isOwner || isCoach || (!!user && !member);
 
   return {
     role,

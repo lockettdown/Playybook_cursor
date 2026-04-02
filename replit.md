@@ -31,7 +31,7 @@ supabase-messages-schema.sql - DB schema for messages
 
 ## Development
 
-- **Dev server**: `npm run dev` (runs on port 5000, host 0.0.0.0)
+- **Dev server**: `npm run dev` (runs on port 3001, host 0.0.0.0; avoid 5000 on macOS — AirPlay uses it)
 - **Build**: `npm run build`
 - **Start production**: `npm run start`
 
