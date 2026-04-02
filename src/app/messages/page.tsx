@@ -425,7 +425,7 @@ export default function MessagesPage() {
           </div>
         ) : (
           messages.map((msg) => {
-            const isMe = msg.senderId === member.id;
+            const isMe = member != null && msg.senderId === member.id;
             return (
               <div
                 key={msg.id}

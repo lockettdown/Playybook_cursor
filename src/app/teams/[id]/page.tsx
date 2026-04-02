@@ -232,7 +232,7 @@ export default function TeamDetailPage() {
   const updateTeamMutation = useMutation({
     mutationFn: () =>
       updateTeam(teamId, {
-        name: editTeamName.trim() || team.name,
+        name: editTeamName.trim() || (team?.name ?? ""),
         wins: Math.max(0, parseInt(editTeamWins, 10) || 0),
         losses: Math.max(0, parseInt(editTeamLosses, 10) || 0),
       }),
