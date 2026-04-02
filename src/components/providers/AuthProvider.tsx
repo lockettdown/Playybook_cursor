@@ -8,7 +8,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import type { User, Session } from "@supabase/supabase-js";
+import type { User, Session, SupabaseClient } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import type { AppMember } from "@/types";
@@ -54,14 +54,25 @@ function mapMemberRow(row: Record<string, unknown>): AppMember {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
-  const [supabase] = useState(() => getSupabaseBrowser());
+  /** Created in useEffect so static prerender / Netlify build never calls @supabase/ssr without env. */
+  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [member, setMember] = useState<AppMember | null>(null);
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    try {
+      setSupabase(getSupabaseBrowser());
+    } catch {
+      setSupabase(null);
+      setLoading(false);
+    }
+  }, []);
+
   const fetchMember = useCallback(
     async (uid: string) => {
+      if (!supabase) return;
       const { data } = await supabase
         .from("app_members")
         .select("*")
@@ -78,6 +89,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, fetchMember]);
 
   useEffect(() => {
+    if (!supabase) return;
+
     let prevUserId: string | null = null;
 
     const {
@@ -112,6 +125,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(
     async (email: string, password: string): Promise<string | null> => {
+      if (!supabase) {
+        return "Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Netlify environment variables.";
+      }
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -123,6 +139,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = useCallback(
     async (email: string, password: string): Promise<string | null> => {
+      if (!supabase) {
+        return "Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Netlify environment variables.";
+      }
       const { error } = await supabase.auth.signUp({ email, password });
       return error ? error.message : null;
     },
@@ -130,6 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signOut = useCallback(async () => {
+    if (!supabase) return;
     await supabase.auth.signOut();
     queryClient.clear();
     setUser(null);
