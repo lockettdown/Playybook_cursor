@@ -11,6 +11,7 @@ import {
   Check,
   ChevronDown,
   LogOut,
+  Mail,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -112,7 +113,7 @@ function MemberRow({
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { member, signOut } = useAuth();
+  const { member, user, signOut } = useAuth();
   const { isOwner, canManageMembers } = usePermissions();
 
   const [inviteEmail, setInviteEmail] = useState("");
@@ -185,6 +186,34 @@ export default function SettingsPage() {
       </div>
 
       <div className="flex flex-col gap-6">
+
+        <section>
+          <h2 className="text-sm font-semibold text-pb-muted uppercase tracking-wider mb-2 px-1">
+            Account
+          </h2>
+          <div className="bg-pb-card rounded-[14px] px-4 py-3.5 flex items-start gap-3">
+            <div className="flex items-center justify-center size-9 rounded-full bg-pb-surface shrink-0">
+              <Mail className="size-4 text-pb-muted" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <label
+                htmlFor="settings-account-email"
+                className="text-xs text-pb-muted font-semibold uppercase tracking-wider block mb-1.5"
+              >
+                Email address
+              </label>
+              <input
+                id="settings-account-email"
+                type="email"
+                readOnly
+                value={user?.email ?? ""}
+                placeholder="—"
+                aria-readonly="true"
+                className="w-full bg-pb-surface text-white text-sm rounded-xl px-3 py-2.5 border border-white/10 cursor-default focus:outline-none"
+              />
+            </div>
+          </div>
+        </section>
 
         {/* Team Members */}
         <section>
