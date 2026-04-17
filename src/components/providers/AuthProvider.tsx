@@ -54,7 +54,7 @@ function mapMemberRow(row: Record<string, unknown>): AppMember {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
-  /** Created in useEffect so static prerender / Netlify build never calls @supabase/ssr without env. */
+  /** Created in useEffect so static prerender / production build never calls @supabase/ssr without env. */
   const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -126,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(
     async (email: string, password: string): Promise<string | null> => {
       if (!supabase) {
-        return "Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Netlify environment variables.";
+        return "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your deployment environment variables (Vercel: Project → Settings → Environment Variables), then redeploy.";
       }
       const { error } = await supabase.auth.signInWithPassword({
         email,
@@ -140,7 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = useCallback(
     async (email: string, password: string): Promise<string | null> => {
       if (!supabase) {
-        return "Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Netlify environment variables.";
+        return "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your deployment environment variables (Vercel: Project → Settings → Environment Variables), then redeploy.";
       }
       const { error } = await supabase.auth.signUp({ email, password });
       return error ? error.message : null;

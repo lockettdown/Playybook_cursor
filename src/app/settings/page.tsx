@@ -345,6 +345,23 @@ export default function SettingsPage() {
           {isSigningOut ? "Logging out…" : "Log out"}
         </button>
       </div>
+
+      <section className="mt-6">
+        <h2 className="text-sm font-semibold text-pb-muted uppercase tracking-wider mb-2 px-1">
+          Contact
+        </h2>
+        <div className="bg-pb-card rounded-[14px] px-4 py-4">
+          <p className="text-sm text-white">
+            Contact us at:{" "}
+            <a
+              href="mailto:blackglassinfo@gmail.com"
+              className="text-pb-blue hover:underline focus:outline-none focus:underline"
+            >
+              blackglassinfo@gmail.com
+            </a>
+          </p>
+        </div>
+      </section>
     </div>
   );
 }
