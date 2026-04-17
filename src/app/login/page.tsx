@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { Input } from "@/components/ui/input";
@@ -144,6 +145,16 @@ export default function LoginPage() {
               placeholder="••••••••"
               className="border-pb-border bg-pb-card text-white placeholder:text-pb-muted"
             />
+            {mode === "login" && (
+              <div className="mt-2 text-right">
+                <Link
+                  href="/forgot-password"
+                  className="text-xs font-medium text-pb-orange hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+            )}
           </div>
 
           {error && (
