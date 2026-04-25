@@ -32,7 +32,7 @@ export default function LoginPage() {
       }
       router.push("/");
     } else {
-      const err = await signUp(email, password);
+      const err = await signUp(email, password, `${window.location.origin}/subscribe`);
       if (err) {
         setError(err);
         setBusy(false);
@@ -74,6 +74,9 @@ export default function LoginPage() {
                 updated_at: new Date().toISOString(),
               })
               .eq("id", pendingByEmail[0].id);
+            router.push("/");
+            setBusy(false);
+            return;
           } else {
             await supabase.from("app_members").insert({
               user_id: user.id,
@@ -83,6 +86,9 @@ export default function LoginPage() {
               role: "owner" as const,
               invite_status: "accepted",
             });
+            router.push("/subscribe");
+            setBusy(false);
+            return;
           }
         }
       }

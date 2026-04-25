@@ -19,7 +19,7 @@ interface AuthContextValue {
   member: AppMember | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<string | null>;
-  signUp: (email: string, password: string) => Promise<string | null>;
+  signUp: (email: string, password: string, emailRedirectTo?: string) => Promise<string | null>;
   signOut: () => Promise<void>;
   refreshMember: () => Promise<void>;
 }
@@ -48,6 +48,11 @@ function mapMemberRow(row: Record<string, unknown>): AppMember {
     inviteToken: (row.invite_token as string) ?? null,
     inviteStatus: row.invite_status as AppMember["inviteStatus"],
     playerId: (row.player_id as string) ?? null,
+    stripeCustomerId: (row.stripe_customer_id as string) ?? null,
+    stripeSubscriptionId: (row.stripe_subscription_id as string) ?? null,
+    subscriptionStatus: (row.subscription_status as string) ?? null,
+    currentPeriodEnd: (row.current_period_end as string) ?? null,
+    planInterval: (row.plan_interval as "month" | "year" | null) ?? null,
     createdAt: row.created_at as string,
   };
 }
@@ -138,11 +143,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signUp = useCallback(
-    async (email: string, password: string): Promise<string | null> => {
+    async (email: string, password: string, emailRedirectTo?: string): Promise<string | null> => {
       if (!supabase) {
         return "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your deployment environment variables (Vercel: Project → Settings → Environment Variables), then redeploy.";
       }
-      const { error } = await supabase.auth.signUp({ email, password });
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: emailRedirectTo ? { emailRedirectTo } : undefined,
+      });
       return error ? error.message : null;
     },
     [supabase]

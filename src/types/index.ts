@@ -163,6 +163,11 @@ export interface AppMember {
   inviteToken: string | null;
   inviteStatus: InviteStatus;
   playerId: string | null;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+  subscriptionStatus: string | null;
+  currentPeriodEnd: string | null;
+  planInterval: "month" | "year" | null;
   createdAt: string;
 }
 
