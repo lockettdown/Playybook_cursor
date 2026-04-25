@@ -16,6 +16,18 @@ export function getSupabaseServerWithServiceRole() {
   });
 }
 
+/** Service role bypasses RLS; use for trusted server routes only. Returns null if not configured. */
+export function tryGetSupabaseServerWithServiceRole() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceRoleKey) {
+    return null;
+  }
+  return createClient(url, serviceRoleKey, {
+    auth: { persistSession: false },
+  });
+}
+
 export function getSupabaseServerWithAnon() {
   const url = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
   const anonKey = requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");

@@ -3,6 +3,7 @@ import {
   getSupabaseServerForUser,
   getSupabaseServerWithAnon,
   getSupabaseServerWithServiceRole,
+  tryGetSupabaseServerWithServiceRole,
 } from "@/lib/supabase-server";
 
 export type BillingPlan = "monthly" | "yearly";
@@ -36,8 +37,10 @@ export async function getAuthenticatedBillingActor(
     return null;
   }
 
-  const userClient = getSupabaseServerForUser(token);
-  const { data: memberData, error: memberError } = await userClient
+  const serviceClient = tryGetSupabaseServerWithServiceRole();
+  const db = serviceClient ?? getSupabaseServerForUser(token);
+
+  const { data: memberData, error: memberError } = await db
     .from("app_members")
     .select("id, stripe_customer_id")
     .eq("user_id", userData.user.id)
@@ -49,13 +52,14 @@ export async function getAuthenticatedBillingActor(
 
   let billingMember = memberData;
   if (!billingMember) {
-    const { data: createdMember, error: createMemberError } = await userClient
+    const email = userData.user.email ?? "";
+    const { data: createdMember, error: createMemberError } = await db
       .from("app_members")
       .insert({
         user_id: userData.user.id,
         owner_id: userData.user.id,
-        email: userData.user.email ?? "",
-        display_name: userData.user.email ?? "",
+        email: email || `user-${userData.user.id}@placeholder.local`,
+        display_name: email || "Account",
         role: "owner",
         invite_status: "accepted",
       })
