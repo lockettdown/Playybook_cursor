@@ -36,6 +36,7 @@ export async function POST(request: Request) {
       await upsertBillingFieldsForMember({
         memberId: actor.memberId,
         stripeCustomerId: customer.id,
+        authToken: actor.authToken,
       });
     }
 

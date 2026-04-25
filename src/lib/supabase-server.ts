@@ -23,3 +23,16 @@ export function getSupabaseServerWithAnon() {
     auth: { persistSession: false },
   });
 }
+
+export function getSupabaseServerForUser(accessToken: string) {
+  const url = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
+  const anonKey = requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  return createClient(url, anonKey, {
+    auth: { persistSession: false },
+    global: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  });
+}

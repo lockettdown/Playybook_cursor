@@ -1,5 +1,9 @@
 import type Stripe from "stripe";
-import { getSupabaseServerWithAnon, getSupabaseServerWithServiceRole } from "@/lib/supabase-server";
+import {
+  getSupabaseServerForUser,
+  getSupabaseServerWithAnon,
+  getSupabaseServerWithServiceRole,
+} from "@/lib/supabase-server";
 
 export type BillingPlan = "monthly" | "yearly";
 
@@ -8,6 +12,7 @@ export interface AuthenticatedBillingActor {
   email: string;
   memberId: string;
   stripeCustomerId: string | null;
+  authToken: string;
 }
 
 function getBearerToken(authHeader: string | null): string | null {
@@ -31,22 +36,45 @@ export async function getAuthenticatedBillingActor(
     return null;
   }
 
-  const serviceClient = getSupabaseServerWithServiceRole();
-  const { data: memberData, error: memberError } = await serviceClient
+  const userClient = getSupabaseServerForUser(token);
+  const { data: memberData, error: memberError } = await userClient
     .from("app_members")
     .select("id, stripe_customer_id")
     .eq("user_id", userData.user.id)
     .maybeSingle();
 
-  if (memberError || !memberData) {
+  if (memberError) {
     return null;
+  }
+
+  let billingMember = memberData;
+  if (!billingMember) {
+    const { data: createdMember, error: createMemberError } = await userClient
+      .from("app_members")
+      .insert({
+        user_id: userData.user.id,
+        owner_id: userData.user.id,
+        email: userData.user.email ?? "",
+        display_name: userData.user.email ?? "",
+        role: "owner",
+        invite_status: "accepted",
+      })
+      .select("id, stripe_customer_id")
+      .single();
+
+    if (createMemberError || !createdMember) {
+      return null;
+    }
+
+    billingMember = createdMember;
   }
 
   return {
     userId: userData.user.id,
     email: userData.user.email ?? "",
-    memberId: memberData.id as string,
-    stripeCustomerId: (memberData.stripe_customer_id as string | null) ?? null,
+    memberId: billingMember.id as string,
+    stripeCustomerId: (billingMember.stripe_customer_id as string | null) ?? null,
+    authToken: token,
   };
 }
 
@@ -64,8 +92,8 @@ export async function upsertBillingFieldsForMember(input: {
   subscriptionStatus?: string | null;
   currentPeriodEnd?: string | null;
   planInterval?: "month" | "year" | null;
+  authToken?: string;
 }) {
-  const serviceClient = getSupabaseServerWithServiceRole();
   const payload = {
     stripe_customer_id: input.stripeCustomerId ?? null,
     stripe_subscription_id: input.stripeSubscriptionId ?? null,
@@ -75,17 +103,32 @@ export async function upsertBillingFieldsForMember(input: {
     updated_at: new Date().toISOString(),
   };
 
-  if (input.memberId) {
-    const { error } = await serviceClient.from("app_members").update(payload).eq("id", input.memberId);
-    if (error) throw error;
+  try {
+    const serviceClient = getSupabaseServerWithServiceRole();
+
+    if (input.memberId) {
+      const { error } = await serviceClient.from("app_members").update(payload).eq("id", input.memberId);
+      if (error) throw error;
+      return;
+    }
+
+    if (input.stripeCustomerId) {
+      const { error } = await serviceClient
+        .from("app_members")
+        .update(payload)
+        .eq("stripe_customer_id", input.stripeCustomerId);
+      if (error) throw error;
+    }
     return;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    const missingServiceRole = message.includes("SUPABASE_SERVICE_ROLE_KEY");
+    if (!missingServiceRole || !input.authToken || !input.memberId) {
+      throw error;
+    }
   }
 
-  if (input.stripeCustomerId) {
-    const { error } = await serviceClient
-      .from("app_members")
-      .update(payload)
-      .eq("stripe_customer_id", input.stripeCustomerId);
-    if (error) throw error;
-  }
+  const userClient = getSupabaseServerForUser(input.authToken);
+  const { error } = await userClient.from("app_members").update(payload).eq("id", input.memberId);
+  if (error) throw error;
 }

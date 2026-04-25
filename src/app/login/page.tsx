@@ -45,25 +45,37 @@ export default function LoginPage() {
       } = await supabase.auth.getUser();
 
       if (user) {
-        const { data: existingMember } = await supabase
+        const { data: existingMember, error: existingMemberError } = await supabase
           .from("app_members")
           .select("id")
           .eq("user_id", user.id)
           .limit(1);
 
+        if (existingMemberError) {
+          setError(existingMemberError.message);
+          setBusy(false);
+          return;
+        }
+
         const alreadyHasAccount =
           existingMember && existingMember.length > 0;
 
         if (!alreadyHasAccount) {
-          const { data: pendingByEmail } = await supabase
+          const { data: pendingByEmail, error: pendingByEmailError } = await supabase
             .from("app_members")
             .select("*")
             .eq("email", email)
             .eq("invite_status", "pending")
             .limit(1);
 
+          if (pendingByEmailError) {
+            setError(pendingByEmailError.message);
+            setBusy(false);
+            return;
+          }
+
           if (pendingByEmail && pendingByEmail.length > 0) {
-            await supabase
+            const { error: updateMemberError } = await supabase
               .from("app_members")
               .update({
                 user_id: user.id,
@@ -74,11 +86,18 @@ export default function LoginPage() {
                 updated_at: new Date().toISOString(),
               })
               .eq("id", pendingByEmail[0].id);
+
+            if (updateMemberError) {
+              setError(updateMemberError.message);
+              setBusy(false);
+              return;
+            }
+
             router.push("/");
             setBusy(false);
             return;
           } else {
-            await supabase.from("app_members").insert({
+            const { error: insertMemberError } = await supabase.from("app_members").insert({
               user_id: user.id,
               owner_id: user.id,
               email,
@@ -86,6 +105,13 @@ export default function LoginPage() {
               role: "owner" as const,
               invite_status: "accepted",
             });
+
+            if (insertMemberError) {
+              setError(insertMemberError.message);
+              setBusy(false);
+              return;
+            }
+
             router.push("/subscribe");
             setBusy(false);
             return;
