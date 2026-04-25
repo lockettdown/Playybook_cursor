@@ -21,6 +21,11 @@ function mapMember(row: Record<string, unknown>): AppMember {
     inviteToken: (row.invite_token as string) ?? null,
     inviteStatus: row.invite_status as AppMember["inviteStatus"],
     playerId: (row.player_id as string) ?? null,
+    stripeCustomerId: (row.stripe_customer_id as string) ?? null,
+    stripeSubscriptionId: (row.stripe_subscription_id as string) ?? null,
+    subscriptionStatus: (row.subscription_status as string) ?? null,
+    currentPeriodEnd: (row.current_period_end as string) ?? null,
+    planInterval: (row.plan_interval as "month" | "year" | null) ?? null,
     createdAt: row.created_at as string,
   };
 }

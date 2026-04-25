@@ -12,6 +12,7 @@ import {
   ChevronDown,
   LogOut,
   Mail,
+  CreditCard,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -23,6 +24,7 @@ import {
 import { useAuth } from "@/components/providers/AuthProvider";
 import { usePermissions } from "@/hooks/usePermissions";
 import type { AppMember, MemberRole } from "@/types";
+import { createBillingPortalLink, startCheckout } from "@/lib/billing-client";
 
 const ROLE_LABELS: Record<MemberRole, string> = {
   owner: "Owner",
@@ -113,7 +115,7 @@ function MemberRow({
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { member, user, signOut } = useAuth();
+  const { member, user, session, signOut, refreshMember } = useAuth();
   const { isOwner, canManageMembers } = usePermissions();
 
   const [inviteEmail, setInviteEmail] = useState("");
@@ -122,6 +124,9 @@ export default function SettingsPage() {
   const [inviteError, setInviteError] = useState("");
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [billingError, setBillingError] = useState<string | null>(null);
+  const [billingLoadingPlan, setBillingLoadingPlan] = useState<"monthly" | "yearly" | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -174,6 +179,35 @@ export default function SettingsPage() {
     setIsSigningOut(true);
     await signOut();
     router.push("/login");
+  }
+
+  async function handleCheckout(plan: "monthly" | "yearly") {
+    try {
+      setBillingError(null);
+      setBillingLoadingPlan(plan);
+      const checkoutUrl = await startCheckout(session, plan, "settings");
+      window.location.assign(checkoutUrl);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to start checkout.";
+      setBillingError(message);
+    } finally {
+      setBillingLoadingPlan(null);
+      refreshMember();
+    }
+  }
+
+  async function handleOpenPortal() {
+    try {
+      setBillingError(null);
+      setPortalLoading(true);
+      const portalUrl = await createBillingPortalLink(session);
+      window.location.assign(portalUrl);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to open billing portal.";
+      setBillingError(message);
+    } finally {
+      setPortalLoading(false);
+    }
   }
 
   return (
@@ -345,6 +379,60 @@ export default function SettingsPage() {
           {isSigningOut ? "Logging out…" : "Log out"}
         </button>
       </div>
+
+      <section className="mt-6">
+        <h2 className="text-sm font-semibold text-pb-muted uppercase tracking-wider mb-2 px-1">
+          Billing
+        </h2>
+        <div className="bg-pb-card rounded-[14px] p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <CreditCard className="size-4 text-pb-blue" />
+            <p className="text-white text-sm font-semibold">Subscriptions</p>
+          </div>
+          <p className="text-pb-muted text-xs">
+            Monthly plan is $4.99/month and yearly plan is $50/year. Both include a free trial.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => handleCheckout("monthly")}
+              disabled={billingLoadingPlan !== null}
+              className="rounded-xl border border-white/10 bg-pb-surface px-3 py-2.5 text-sm font-semibold text-white hover:border-pb-blue/50 disabled:opacity-60"
+            >
+              {billingLoadingPlan === "monthly" ? "Starting monthly checkout…" : "Choose monthly ($4.99)"}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleCheckout("yearly")}
+              disabled={billingLoadingPlan !== null}
+              className="rounded-xl border border-white/10 bg-pb-surface px-3 py-2.5 text-sm font-semibold text-white hover:border-pb-blue/50 disabled:opacity-60"
+            >
+              {billingLoadingPlan === "yearly" ? "Starting yearly checkout…" : "Choose yearly ($50)"}
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={handleOpenPortal}
+            disabled={portalLoading}
+            className="w-full rounded-xl border border-pb-blue/40 bg-pb-blue/10 px-3 py-2.5 text-sm font-semibold text-pb-blue hover:bg-pb-blue/20 disabled:opacity-60"
+          >
+            {portalLoading ? "Opening billing portal…" : "Manage billing"}
+          </button>
+          <p className="text-xs text-pb-muted">
+            Current status:{" "}
+            <span className="text-white">
+              {member?.subscriptionStatus ?? "No active subscription"}
+              {member?.planInterval ? ` (${member.planInterval})` : ""}
+            </span>
+          </p>
+          {member?.currentPeriodEnd && (
+            <p className="text-xs text-pb-muted">
+              Renewal date: <span className="text-white">{new Date(member.currentPeriodEnd).toLocaleDateString()}</span>
+            </p>
+          )}
+          {billingError && <p className="text-xs text-red-400">{billingError}</p>}
+        </div>
+      </section>
 
       <section className="mt-6">
         <h2 className="text-sm font-semibold text-pb-muted uppercase tracking-wider mb-2 px-1">
