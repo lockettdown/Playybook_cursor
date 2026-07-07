@@ -1,15 +1,22 @@
 import { createBrowserClient } from "@supabase/ssr";
 
+function getPublishableKey() {
+  return (
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+}
+
 /**
  * Browser-only Supabase client. Call from useEffect or event handlers — not during
  * React render or SSR, or Next.js static prerender will run before env is available.
  */
 export function getSupabaseBrowser() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const key = getPublishableKey();
   if (!url || !key) {
     throw new Error(
-      "Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY. Add them in your deployment environment variables (e.g. Vercel: Project → Settings → Environment Variables)."
+      "Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY. Add them in your deployment environment variables (e.g. Vercel: Project → Settings → Environment Variables)."
     );
   }
   return createBrowserClient(url, key);

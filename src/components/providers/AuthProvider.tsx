@@ -131,7 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(
     async (email: string, password: string): Promise<string | null> => {
       if (!supabase) {
-        return "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your deployment environment variables (Vercel: Project → Settings → Environment Variables), then redeploy.";
+        return "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY in your deployment environment variables, then redeploy.";
       }
       const { error } = await supabase.auth.signInWithPassword({
         email,
@@ -145,7 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = useCallback(
     async (email: string, password: string, emailRedirectTo?: string): Promise<string | null> => {
       if (!supabase) {
-        return "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your deployment environment variables (Vercel: Project → Settings → Environment Variables), then redeploy.";
+        return "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY in your deployment environment variables, then redeploy.";
       }
       const { error } = await supabase.auth.signUp({
         email,

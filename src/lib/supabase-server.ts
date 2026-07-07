@@ -8,6 +8,13 @@ function requireEnv(name: string): string {
   return value;
 }
 
+function getPublishableKey(): string {
+  return (
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+    requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+  );
+}
+
 export function getSupabaseServerWithServiceRole() {
   const url = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
   const serviceRoleKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
@@ -18,8 +25,7 @@ export function getSupabaseServerWithServiceRole() {
 
 export function getSupabaseServerWithAnon() {
   const url = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
-  const anonKey = requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
-  return createClient(url, anonKey, {
+  return createClient(url, getPublishableKey(), {
     auth: { persistSession: false },
   });
 }

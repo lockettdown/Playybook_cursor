@@ -106,7 +106,7 @@ export default function ResetPasswordPage() {
       <div className="flex min-h-screen items-center justify-center bg-pb-dark px-4">
         <p className="max-w-sm text-center text-sm text-red-400">
           Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and
-          NEXT_PUBLIC_SUPABASE_ANON_KEY in your deployment environment variables,
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY in your deployment environment variables,
           then redeploy.
         </p>
       </div>

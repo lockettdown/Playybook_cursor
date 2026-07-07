@@ -3,9 +3,10 @@
 import { useEffect, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { AppShell } from "@/components/layout/AppShell";
 
-const PUBLIC_PATHS = ["/login"];
-const PUBLIC_PREFIXES = ["/join/"];
+const PUBLIC_PATHS = ["/login", "/forgot-password"];
+const PUBLIC_PREFIXES = ["/auth/", "/join/"];
 
 function isPublic(pathname: string) {
   return (
@@ -43,5 +44,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   if (!user && !isPublic(pathname)) return null;
 
-  return <>{children}</>;
+  if (isPublic(pathname)) return <>{children}</>;
+
+  return <AppShell>{children}</AppShell>;
 }

@@ -33,7 +33,7 @@ export default function ForgotPasswordPage() {
       setSent(true);
     } catch {
       setError(
-        "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your deployment environment variables, then redeploy."
+        "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY in your deployment environment variables, then redeploy."
       );
     }
 

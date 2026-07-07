@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { AppShell } from "@/components/layout/AppShell";
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { AuthGate } from "@/components/auth/AuthGate";
@@ -38,7 +37,7 @@ export default function RootLayout({
         <QueryProvider>
           <AuthProvider>
             <AuthGate>
-              <AppShell>{children}</AppShell>
+              {children}
             </AuthGate>
           </AuthProvider>
         </QueryProvider>

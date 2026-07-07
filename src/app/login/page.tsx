@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { getSupabaseBrowser } from "@/lib/supabase-browser";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { signIn, signUp } = useAuth();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
@@ -17,6 +18,8 @@ export default function LoginPage() {
   const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const next = searchParams.get("next");
+  const destination = next?.startsWith("/") && !next.startsWith("//") ? next : "/";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,9 +33,13 @@ export default function LoginPage() {
         setBusy(false);
         return;
       }
-      router.push("/");
+      router.push(destination);
     } else {
-      const err = await signUp(email, password, `${window.location.origin}/subscribe`);
+      const err = await signUp(
+        email,
+        password,
+        `${window.location.origin}/auth/callback?next=/subscribe`
+      );
       if (err) {
         setError(err);
         setBusy(false);
